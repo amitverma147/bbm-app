@@ -10,6 +10,10 @@ export const unstable_settings = {
   anchor: "(tabs)",
 };
 
+import { AuthProvider } from "../contexts/AuthContext";
+import { CartProvider } from "../contexts/CartContext";
+import { LocationProvider } from "../contexts/LocationContext";
+
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
     "PlusJakartaSans-Regular": require("../assets/fonts/PlusJakartaSans-VariableFont_wght.ttf"),
@@ -34,11 +38,16 @@ export default function RootLayout() {
   }
 
   return (
-    <Stack>
-      <Stack.Screen name="index" options={{ headerShown: false }} />
-      <Stack.Screen
-        name="+not-found"
-      />
-    </Stack>
+    <AuthProvider>
+      <LocationProvider>
+        <CartProvider>
+          <Stack>
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="index" options={{ headerShown: false }} />
+            <Stack.Screen name="+not-found" />
+          </Stack>
+        </CartProvider>
+      </LocationProvider>
+    </AuthProvider>
   );
 }
