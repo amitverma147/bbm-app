@@ -1,4 +1,5 @@
-import { Ionicons, MaterialIcons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
     ScrollView,
@@ -9,6 +10,7 @@ import {
     View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useCart } from "../contexts/CartContext";
 import { searchAll } from "../services/searchService";
 
 const QUICK_ACCESS = [
@@ -43,106 +45,160 @@ const QUICK_ACCESS = [
 ];
 
 const Header = () => {
+  const router = useRouter();
+  const { getCartTotal } = useCart();
   const [location, setLocation] = useState("Detecting location...");
   const [searchQuery, setSearchQuery] = useState("");
-  const [isSearching, setIsSearching] = useState(false);
+
+  const cartTotal = getCartTotal();
 
   // Simulate location detection
   useEffect(() => {
     setTimeout(() => {
-      setLocation("Home - 123 Street, City");
+      setLocation("HOME - 123 Street, City");
     }, 1500);
   }, []);
 
   const handleSearch = async (text: string) => {
     setSearchQuery(text);
     if (text.length > 2) {
-      setIsSearching(true);
       try {
         const results = await searchAll(text);
         console.log("Search results:", results);
       } catch (e) {
         console.error(e);
-      } finally {
-        setIsSearching(false);
       }
     }
   };
 
   return (
     <SafeAreaView edges={["top"]} className="bg-white">
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
-      <View className="bg-white pb-2 border-b border-gray-100">
-        {/* Top Row: Location */}
-        <View className="flex-row items-center justify-between px-4 py-2">
-          {/* Left: Location */}
-          <TouchableOpacity className="flex-1 mr-4 flex-row items-center">
-            <MaterialIcons name="location-pin" size={24} color="#FD5B00" />
-            <View className="ml-2 flex-1">
-              <View className="flex-row items-center">
-                <Text className="text-xs text-gray-500 font-medium mr-1">
-                  Deliver to
-                </Text>
-                <MaterialIcons
-                  name="keyboard-arrow-down"
-                  size={18}
-                  color="#FD5B00"
-                />
+      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+      <View className="bg-white pb-4 shadow-sm border-b border-gray-100 rounded-b-[24px]">
+        {/* Top Row: Brand & Location + Actions */}
+        <View className="flex-row items-center justify-between px-5 pt-3 pb-4">
+          {/* Left: Brand & Location */}
+          <TouchableOpacity className="flex-1 mr-4">
+            <View className="flex-row items-center mb-1">
+              <View className="bg-orange-600 rounded-lg p-1 mr-2 shadow-sm">
+                <Ionicons name="cart" size={14} color="white" />
               </View>
+              <Text className="text-xl font-black text-gray-900 tracking-tight">
+                BigBest<Text className="text-orange-600">Mart</Text>
+              </Text>
+            </View>
+
+            <View className="flex-row items-center bg-gray-50 self-start px-2 py-1 rounded-full border border-gray-100">
+              <Ionicons name="location" size={12} color="#EA580C" />
               <Text
-                className="text-sm font-bold text-gray-800"
+                className="text-[11px] font-bold text-gray-700 ml-1 mr-1 max-w-[120px]"
                 numberOfLines={1}
               >
                 {location}
               </Text>
+              <Ionicons name="chevron-down" size={12} color="#9CA3AF" />
             </View>
           </TouchableOpacity>
+
+          {/* Right: Actions */}
+          <View className="flex-row items-start gap-4">
+            {/* Wallet / Cart */}
+            <TouchableOpacity
+              onPress={() => router.push("/cart")}
+              className="items-center"
+            >
+              <View className="relative">
+                <View className="bg-gray-50 w-10 h-10 rounded-full items-center justify-center border border-gray-100 shadow-sm">
+                  <Ionicons
+                    name="bag-handle-outline"
+                    size={20}
+                    color="#1F2937"
+                  />
+                </View>
+                {cartTotal > 0 && (
+                  <View className="absolute -top-1 -right-1 bg-orange-600 w-4 h-4 rounded-full items-center justify-center border-[1.5px] border-white">
+                    <Text className="text-[8px] font-bold text-white">2</Text>
+                  </View>
+                )}
+              </View>
+              <Text className="text-[10px] font-bold text-gray-900 mt-1">
+                ₹{cartTotal}
+              </Text>
+            </TouchableOpacity>
+
+            {/* Profile */}
+            <TouchableOpacity
+              onPress={() => router.push("/profile")}
+              className="items-center"
+            >
+              <View className="bg-gray-900 w-10 h-10 rounded-full items-center justify-center shadow-lg shadow-orange-200">
+                <Ionicons name="person" size={18} color="white" />
+              </View>
+              <Text className="text-[10px] font-bold text-transparent mt-1">
+                .
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
-        {/* Second Row: Quick Access Pills (Tabs) */}
+        {/* Search Bar - Floating effect */}
+        <View className="px-5 mb-5 relative z-10">
+          <View className="flex-row items-center bg-white rounded-2xl shadow-[0_4px_20px_-10px_rgba(0,0,0,0.1)] border border-gray-100 h-14 px-4">
+            <Ionicons name="search" size={22} color="#F97316" />
+            <TextInput
+              placeholder="Search explicitly..."
+              className="flex-1 mx-3 text-gray-800 text-[15px] font-medium"
+              placeholderTextColor="#94A3B8"
+              value={searchQuery}
+              onChangeText={handleSearch}
+            />
+            <View className="h-6 w-[1px] bg-gray-200 mx-2" />
+            <TouchableOpacity>
+              <Ionicons name="mic" size={22} color="#64748B" />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Quick Tabs - Modern Pills */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 8 }}
+          contentContainerStyle={{ paddingHorizontal: 20 }}
+          className="pb-1"
         >
           {QUICK_ACCESS.map((item) => (
             <TouchableOpacity
               key={item.id}
-              style={{
-                backgroundColor: item.active ? "#E11D48" : "#fff",
-                borderColor: item.active ? "#E11D48" : "#f3f4f6",
-                shadowColor: "#000",
-                shadowOffset: { width: 0, height: 1 },
-                shadowOpacity: 0.1,
-                shadowRadius: 2,
-                elevation: 2,
-              }}
-              className={`px-6 py-2 rounded-full mr-3 border items-center justify-center`}
+              className={`mr-3 flex-row items-center px-4 py-2.5 rounded-2xl border ${
+                item.active
+                  ? "bg-gray-900 border-gray-900 shadow-md"
+                  : "bg-white border-gray-200"
+              }`}
             >
+              <Ionicons
+                name={
+                  item.title === "QWIK"
+                    ? "flash"
+                    : item.title === "Eato"
+                      ? "restaurant"
+                      : item.title === "Star"
+                        ? "star"
+                        : "grid"
+                }
+                size={16}
+                color={item.active ? "#FDBA74" : "#64748B"}
+                className="mr-2"
+              />
               <Text
-                className={`${item.active ? "text-white" : "text-[#FD5B00]"} font-bold text-xs uppercase tracking-wide`}
+                className={`text-xs font-bold ml-1.5 ${
+                  item.active ? "text-white" : "text-gray-600"
+                }`}
               >
                 {item.title}
               </Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
-
-        {/* Third Row: Search Bar */}
-        <View className="px-4 mt-1 pb-2">
-          <View className="flex-row items-center bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden h-11">
-            <TextInput
-              placeholder="Search..."
-              className="flex-1 pl-4 text-gray-800 font-medium text-base h-full"
-              placeholderTextColor="#9CA3AF"
-              value={searchQuery}
-              onChangeText={handleSearch}
-            />
-            <TouchableOpacity className="bg-[#FD5B00] h-full w-11 items-center justify-center">
-              <Ionicons name="search" size={20} color="white" />
-            </TouchableOpacity>
-          </View>
-        </View>
       </View>
     </SafeAreaView>
   );
