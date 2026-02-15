@@ -1,8 +1,6 @@
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
-    Platform,
     ScrollView,
     StatusBar,
     Text,
@@ -12,14 +10,6 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { searchAll } from "../services/searchService";
-
-// Start with a mock user/auth state
-const MOCK_USER = {
-  id: "123",
-  name: "User",
-  isLoggedIn: false,
-  avatar: null,
-};
 
 const QUICK_ACCESS = [
   {
@@ -53,11 +43,9 @@ const QUICK_ACCESS = [
 ];
 
 const Header = () => {
-  const router = useRouter();
   const [location, setLocation] = useState("Detecting location...");
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
-  const [user, setUser] = useState(MOCK_USER);
 
   // Simulate location detection
   useEffect(() => {
@@ -82,13 +70,7 @@ const Header = () => {
   };
 
   return (
-    <SafeAreaView
-      edges={["top"]}
-      style={{
-        backgroundColor: "#fff",
-        paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
-      }}
-    >
+    <SafeAreaView edges={["top"]} className="bg-white">
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
       <View className="bg-white pb-2 border-b border-gray-100">
         {/* Top Row: Location */}
