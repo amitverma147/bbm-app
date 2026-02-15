@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { API_BASE_URL } from "../constants/Config";
 
 interface LocationContextType {
     pincode: string;
@@ -92,11 +93,30 @@ export const LocationProvider = ({ children }: { children: React.ReactNode }) =>
     };
 
     const fetchAddresses = async () => {
-        // Placeholder for API call
         setIsLoadingAddresses(true);
         try {
-            // const result = await getUserAddresses();
-            // if (result.success) setAddresses(result.addresses);
+            // We need authentication token here. 
+            // Ideally AuthContext should provide an axios instance with interceptors,
+            // or we get token from storage/AuthContext.
+            const token = await AsyncStorage.getItem('userToken'); // Or however token is stored
+
+            if (!token) return;
+
+            const response = await fetch(`${API_BASE_URL}/user-addresses`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                setAddresses(data.addresses || []);
+                // If no selected address, select default or first
+                if (!selectedAddress && data.addresses?.length > 0) {
+                    const defaultAddr = data.addresses.find((a: any) => a.is_default) || data.addresses[0];
+                    setSelectedAddress(defaultAddr);
+                }
+            }
         } catch (e) {
             console.warn("Error fetching addresses", e);
         } finally {

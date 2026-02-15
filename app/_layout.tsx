@@ -14,6 +14,7 @@ export const unstable_settings = {
 import { AuthProvider } from "../contexts/AuthContext";
 import { CartProvider } from "../contexts/CartContext";
 import { LocationProvider } from "../contexts/LocationContext";
+import { DeliveryChargeProvider } from "../contexts/DeliveryChargeContext";
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
@@ -42,11 +43,13 @@ export default function RootLayout() {
     <AuthProvider>
       <LocationProvider>
         <CartProvider>
-          <Stack>
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            <Stack.Screen name="index" options={{ headerShown: false }} />
-            <Stack.Screen name="+not-found" />
-          </Stack>
+          <DeliveryChargeProvider>
+            <Stack>
+              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+              <Stack.Screen name="index" options={{ headerShown: false }} />
+              <Stack.Screen name="+not-found" />
+            </Stack>
+          </DeliveryChargeProvider>
         </CartProvider>
       </LocationProvider>
     </AuthProvider>
