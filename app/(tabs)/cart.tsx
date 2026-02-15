@@ -23,6 +23,10 @@ import { API_BASE_URL } from "../../constants/Config";
 import Animated, { FadeInUp, FadeInDown } from "react-native-reanimated";
 import * as CouponOnApi from "../../services/couponService";
 
+import LocationPickerModal from '../../components/LocationPickerModal';
+import AddressDetailsFormModal from '../../components/AddressDetailsFormModal';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 const { width } = Dimensions.get("window");
 
 const CartScreen = () => {
@@ -60,6 +64,63 @@ const CartScreen = () => {
 
   // Address Modal State
   const [showAddressModal, setShowAddressModal] = useState(false);
+
+  // New Address Flow State
+  const [showLocationPicker, setShowLocationPicker] = useState(false);
+  const [showAddressForm, setShowAddressForm] = useState(false);
+  const [pickedLocation, setPickedLocation] = useState<any>(null);
+  const [isSavingAddress, setIsSavingAddress] = useState(false);
+
+  // --- Handlers for New Address Flow ---
+
+  const handleAddNewAddress = () => {
+    setShowAddressModal(false);
+    setShowLocationPicker(true);
+  };
+
+  const handleLocationPicked = (location: any) => {
+    setPickedLocation(location);
+    setShowLocationPicker(false);
+    setTimeout(() => setShowAddressForm(true), 500); // Small delay
+  };
+
+  const handleSaveAddress = async (addressData: any) => {
+    setIsSavingAddress(true);
+    try {
+      const token = await AsyncStorage.getItem('userToken');
+      if (!token) {
+        Alert.alert("Error", "You must be logged in to save an address");
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/user-addresses`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(addressData)
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setShowAddressForm(false);
+        setShowAddressModal(true);
+        fetchAddresses(); // Refresh list via context
+        Alert.alert("Success", "Address saved successfully");
+      } else {
+        Alert.alert("Error", result.message || "Failed to save address");
+      }
+
+    } catch (error) {
+      console.error("Save address error:", error);
+      Alert.alert("Error", "Something went wrong while saving address");
+    } finally {
+      setIsSavingAddress(false);
+    }
+  };
+
 
   // --- Calculations ---
 
@@ -776,10 +837,7 @@ const CartScreen = () => {
                     <View className="items-center justify-center mt-10">
                       <Text className="text-gray-400 mb-4">No addresses found</Text>
                       <TouchableOpacity
-                        onPress={() => {
-                          setShowAddressModal(false);
-                          router.push("/(tabs)/profile" as any); // Redirect to profile to add address
-                        }}
+                        onPress={handleAddNewAddress}
                         className="bg-[#FF6B00] px-6 py-2 rounded-full"
                       >
                         <Text className="text-white font-bold">Add New Address</Text>
@@ -789,10 +847,7 @@ const CartScreen = () => {
                   ListFooterComponent={
                     addresses.length > 0 ? (
                       <TouchableOpacity
-                        onPress={() => {
-                          setShowAddressModal(false);
-                          router.push("/(tabs)/profile" as any);
-                        }}
+                        onPress={handleAddNewAddress}
                         className="mt-4 flex-row items-center justify-center border border-dashed border-gray-300 p-4 rounded-xl"
                       >
                         <Feather name="plus" size={16} color="#4b5563" />
@@ -806,6 +861,28 @@ const CartScreen = () => {
           </View>
         </View>
       </Modal>
+
+      {/* New Address Flow Modals */}
+      <LocationPickerModal
+        visible={showLocationPicker}
+        onClose={() => {
+          setShowLocationPicker(false);
+          setShowAddressModal(true);
+        }}
+        onConfirm={handleLocationPicked}
+      />
+
+      <AddressDetailsFormModal
+        visible={showAddressForm}
+        onClose={() => setShowAddressForm(false)}
+        onBack={() => {
+          setShowAddressForm(false);
+          setShowLocationPicker(true);
+        }}
+        onSave={handleSaveAddress}
+        initialLocation={pickedLocation}
+        loading={isSavingAddress}
+      />
     </SafeAreaView>
   );
 };
