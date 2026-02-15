@@ -1,20 +1,20 @@
-import "../polyfills";
 import { Stack } from "expo-router";
+import "../polyfills";
 
-import "react-native-reanimated";
-import "../global.css";
+import SplashScreen from "@/components/splash-screen";
 import { useFonts } from "expo-font";
 import { useEffect, useState } from "react";
-import SplashScreen from "@/components/splash-screen";
+import "react-native-reanimated";
+import "../global.css";
+
+import { AuthProvider } from "../contexts/AuthContext";
+import { CartProvider } from "../contexts/CartContext";
+import { DeliveryChargeProvider } from "../contexts/DeliveryChargeContext";
+import { LocationProvider } from "../contexts/LocationContext";
 
 export const unstable_settings = {
   anchor: "(tabs)",
 };
-
-import { AuthProvider } from "../contexts/AuthContext";
-import { CartProvider } from "../contexts/CartContext";
-import { LocationProvider } from "../contexts/LocationContext";
-import { DeliveryChargeProvider } from "../contexts/DeliveryChargeContext";
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
@@ -47,6 +47,7 @@ export default function RootLayout() {
             <Stack>
               <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
               <Stack.Screen name="index" options={{ headerShown: false }} />
+              <Stack.Screen name="profile" options={{ headerShown: false }} />
               <Stack.Screen name="+not-found" />
             </Stack>
           </DeliveryChargeProvider>
