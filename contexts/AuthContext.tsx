@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { supabase } from "../services/supabase";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { API_BASE_URL } from "../constants/Config";
 
@@ -20,6 +19,9 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const AUTH_TOKEN_KEY = 'auth_token';
+const AUTH_USER_KEY = 'auth_user';
+
 export const useAuth = () => {
     const context = useContext(AuthContext);
     if (!context) {
@@ -37,14 +39,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     useEffect(() => {
         const initializeAuth = async () => {
             try {
-                // Check for persisted session in AsyncStorage first? 
-                // Supabase handles this automatically with persistSession: true.
+                const token = await AsyncStorage.getItem(AUTH_TOKEN_KEY);
+                const storedUser = await AsyncStorage.getItem(AUTH_USER_KEY);
 
-                const { data: { session } } = await supabase.auth.getSession();
-
-                if (session?.user) {
-                    setCurrentUser(session.user);
-                    await fetchUserProfile(session.user.id);
+                if (token && storedUser) {
+                    const user = JSON.parse(storedUser);
+                    setCurrentUser(user);
+                    // Verify token and fetch fresh profile
+                    await fetchMe(token);
                 }
             } catch (err) {
                 console.warn("Auth initialization error:", err);
@@ -54,34 +56,29 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         };
 
         initializeAuth();
-
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-            if (session?.user) {
-                setCurrentUser(session.user);
-                await fetchUserProfile(session.user.id);
-            } else {
-                setCurrentUser(null);
-                setUserProfile(null);
-            }
-            setLoading(false);
-        });
-
-        return () => {
-            if (subscription) {
-                subscription.unsubscribe();
-            }
-        };
     }, []);
 
-    const fetchUserProfile = async (userId: string) => {
-        // Placeholder for fetching user profile from backend database if separate from auth
-        // For now we just use auth metadata or empty
+    const fetchMe = async (token: string) => {
         try {
-            // const result = await getUserProfile(userId); ...
-            // Adapted from web's getUserProfile logic if needed.
-            // Web uses: await getUserProfile();
+            const response = await fetch(`${API_BASE_URL}/auth/me`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success) {
+                    setCurrentUser(data.user);
+                    setUserProfile(data.user); // Assuming user profile is included in me
+                    await AsyncStorage.setItem(AUTH_USER_KEY, JSON.stringify(data.user));
+                }
+            } else {
+                // Token might be invalid
+                await logout();
+            }
         } catch (e) {
-            console.warn("Error fetching user profile", e);
+            console.warn("Error fetching current user", e);
         }
     };
 
@@ -89,12 +86,27 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         try {
             setLoading(true);
             setError(null);
-            const { data, error } = await supabase.auth.signInWithPassword({
-                email,
-                password,
+
+            const response = await fetch(`${API_BASE_URL}/auth/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password })
             });
-            if (error) throw error;
-            return { success: true, user: data.user };
+
+            const data = await response.json();
+
+            if (!response.ok || !data.success) {
+                throw new Error(data.error || 'Login failed');
+            }
+
+            const { token, user } = data;
+            await AsyncStorage.setItem(AUTH_TOKEN_KEY, token);
+            await AsyncStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
+
+            setCurrentUser(user);
+            setUserProfile(user);
+
+            return { success: true, user };
         } catch (err: any) {
             setError(err.message);
             return { success: false, error: err.message };
@@ -107,16 +119,28 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         try {
             setLoading(true);
             setError(null);
-            const { email, password, ...metadata } = userData;
-            const { data, error } = await supabase.auth.signUp({
-                email,
-                password,
-                options: {
-                    data: metadata,
-                },
+
+            const response = await fetch(`${API_BASE_URL}/auth/signup`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(userData)
             });
-            if (error) throw error;
-            return { success: true, user: data.user };
+
+            const data = await response.json();
+
+            if (!response.ok || !data.success) {
+                throw new Error(data.error || 'Registration failed');
+            }
+
+            const { token, user } = data;
+            if (token) {
+                await AsyncStorage.setItem(AUTH_TOKEN_KEY, token);
+                await AsyncStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
+                setCurrentUser(user);
+                setUserProfile(user);
+            }
+
+            return { success: true, user };
         } catch (err: any) {
             setError(err.message);
             return { success: false, error: err.message };
@@ -128,8 +152,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const logout = async () => {
         try {
             setLoading(true);
-            const { error } = await supabase.auth.signOut();
-            if (error) throw error;
+
+            // Optional: call backend logout if needed
+            // await fetch(`${API_BASE_URL}/auth/logout`, { method: 'POST' });
+
+            await AsyncStorage.removeItem(AUTH_TOKEN_KEY);
+            await AsyncStorage.removeItem(AUTH_USER_KEY);
+
+            setCurrentUser(null);
+            setUserProfile(null);
+
             return { success: true };
         } catch (err: any) {
             setError(err.message);
@@ -140,13 +172,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     };
 
     const getAccessToken = async () => {
-        const { data: { session } } = await supabase.auth.getSession();
-        return session?.access_token || null;
+        return await AsyncStorage.getItem(AUTH_TOKEN_KEY);
     };
 
     const refreshUserProfile = async () => {
-        if (!currentUser) return;
-        await fetchUserProfile(currentUser.id);
+        const token = await getAccessToken();
+        if (token) {
+            await fetchMe(token);
+        }
     }
 
     const sendOTP = async (phone: string) => {
@@ -169,12 +202,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ phone, otp })
             });
-            return await response.json();
+            const data = await response.json();
+
+            if (data.success && data.token) {
+                await AsyncStorage.setItem(AUTH_TOKEN_KEY, data.token);
+                await AsyncStorage.setItem(AUTH_USER_KEY, JSON.stringify(data.user));
+                setCurrentUser(data.user);
+                setUserProfile(data.user);
+            }
+
+            return data;
         } catch (error: any) {
             return { success: false, error: error.message };
         }
     };
-
 
     const value = {
         currentUser,
