@@ -1,4 +1,4 @@
-import { Stack } from "expo-router";
+import { Stack, useRouter, useSegments } from "expo-router";
 import "../polyfills";
 
 import SplashScreen from "@/components/splash-screen";
@@ -7,13 +7,45 @@ import { useEffect, useState } from "react";
 import "react-native-reanimated";
 import "../global.css";
 
-import { AuthProvider } from "../contexts/AuthContext";
+import { AuthProvider, useAuth } from "../contexts/AuthContext";
 import { CartProvider } from "../contexts/CartContext";
 import { DeliveryChargeProvider } from "../contexts/DeliveryChargeContext";
 import { LocationProvider } from "../contexts/LocationContext";
 
+// Separate component for Auth Guard to use useAuth hook
+function AuthGuard({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, loading } = useAuth();
+  const segments = useSegments();
+  const router = useRouter();
+  const [isNavigationReady, setIsNavigationReady] = useState(false);
+
+  useEffect(() => {
+    setIsNavigationReady(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isNavigationReady || loading) return;
+
+    const inLogin = segments[0] === "login";
+    const inSignup = segments[0] === "signup";
+
+    // Check if user is in a public route
+    const inPublicRoute = inLogin || inSignup;
+
+    if (!isAuthenticated && !inPublicRoute) {
+      // Redirect to login if not authenticated and not in a public route
+      router.replace("/login");
+    } else if (isAuthenticated && inPublicRoute) {
+      // Redirect to tabs if authenticated and trying to access login/signup
+      router.replace("/(tabs)");
+    }
+  }, [isAuthenticated, loading, segments, isNavigationReady]);
+
+  return <>{children}</>;
+}
+
 export const unstable_settings = {
-  anchor: "(tabs)",
+  // initialRouteName: "(tabs)", // potential conflict with auth redirect
 };
 
 export default function RootLayout() {
@@ -44,12 +76,18 @@ export default function RootLayout() {
       <LocationProvider>
         <CartProvider>
           <DeliveryChargeProvider>
-            <Stack>
-              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-              <Stack.Screen name="index" options={{ headerShown: false }} />
-              <Stack.Screen name="profile" options={{ headerShown: false }} />
-              <Stack.Screen name="+not-found" />
-            </Stack>
+            <AuthGuard>
+              <Stack>
+                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                <Stack.Screen name="index" options={{ headerShown: false }} />
+                <Stack.Screen name="login" options={{ headerShown: false }} />
+                <Stack.Screen name="signup" options={{ headerShown: false }} />
+                <Stack.Screen name="profile" options={{ headerShown: false }} />
+                <Stack.Screen name="wishlist" options={{ headerShown: false }} />
+                <Stack.Screen name="addresses" options={{ headerShown: false }} />
+                <Stack.Screen name="+not-found" />
+              </Stack>
+            </AuthGuard>
           </DeliveryChargeProvider>
         </CartProvider>
       </LocationProvider>

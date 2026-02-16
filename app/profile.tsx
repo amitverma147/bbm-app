@@ -1,14 +1,9 @@
 import { Feather, Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import React from "react";
-import { ScrollView, Text, TouchableOpacity, View } from "react-native";
+import React, { useEffect } from "react";
+import { ScrollView, Text, TouchableOpacity, View, Alert, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-
-const USER_DATA = {
-  name: "ABHISHEK KUMAR",
-  phone: "73886 06785",
-  initial: "A",
-};
+import { useAuth } from "../contexts/AuthContext";
 
 const MenuItem = ({ icon, title, subtitle, onPress }: any) => (
   <TouchableOpacity
@@ -32,6 +27,52 @@ const SectionHeader = ({ title }: { title: string }) => (
 
 const Profile = () => {
   const router = useRouter();
+  const { userProfile, logout, refreshUserProfile, loading } = useAuth();
+
+  useEffect(() => {
+    refreshUserProfile();
+  }, []);
+
+  const handleLogout = async () => {
+    Alert.alert(
+      "Log Out",
+      "Are you sure you want to log out?",
+      [
+        {
+          text: "Cancel",
+          style: "cancel"
+        },
+        {
+          text: "Log Out",
+          onPress: async () => {
+            const result = await logout();
+            if (result.success) {
+              // Redirect happens automatically due to AuthContext in index.tsx/layout
+              // But we can force it just in case or show a message
+            } else {
+              Alert.alert("Error", result.error || "Failed to log out");
+            }
+          },
+          style: "destructive"
+        }
+      ]
+    );
+  };
+
+  if (loading && !userProfile) {
+    return (
+      <View className="flex-1 justify-center items-center bg-white">
+        <ActivityIndicator size="large" color="#FD5B00" />
+      </View>
+    );
+  }
+
+  // Fallback if no user is logged in (though protected route should prevent this)
+  const userData = {
+    name: userProfile?.name || "User",
+    phone: userProfile?.phone || userProfile?.email || "No Contact Info",
+    initial: userProfile?.name ? userProfile.name.charAt(0).toUpperCase() : "U",
+  };
 
   return (
     <View className="flex-1 bg-white">
@@ -58,15 +99,15 @@ const Profile = () => {
           <View className="mx-4 mt-0 p-5 bg-white rounded-b-3xl shadow-sm border-x border-b border-gray-100 flex-row items-center mb-6">
             <View className="w-16 h-16 rounded-full bg-orange-100 items-center justify-center mr-4 border border-orange-200">
               <Text className="text-2xl font-black text-orange-600">
-                {USER_DATA.initial}
+                {userData.initial}
               </Text>
             </View>
             <View>
               <Text className="text-xl font-black text-gray-900 mb-1 tracking-tight">
-                {USER_DATA.name}
+                {userData.name}
               </Text>
               <Text className="text-gray-500 font-medium tracking-wide">
-                {USER_DATA.phone}
+                {userData.phone}
               </Text>
               <TouchableOpacity className="mt-2 flex-row items-center">
                 <Text className="text-orange-600 font-bold text-xs mr-1">
@@ -105,6 +146,7 @@ const Profile = () => {
               <TouchableOpacity
                 key={idx}
                 className="bg-white p-4 rounded-2xl w-[31%] items-center justify-center shadow-[0_2px_10px_-4px_rgba(0,0,0,0.1)] border border-gray-50 h-28 active:scale-95 transition-transform"
+                onPress={() => router.push(item.route as any)}
               >
                 <View className="mb-3 bg-orange-50 p-3 rounded-full">
                   {item.icon}
@@ -140,7 +182,7 @@ const Profile = () => {
               <View className="flex-row justify-between items-center px-5 py-4 bg-gray-800">
                 <Text className="text-gray-400 font-medium">
                   Balance:{" "}
-                  <Text className="font-bold text-white text-lg">₹0</Text>
+                  <Text className="font-bold text-white text-lg">₹{userProfile?.wallet_balance || 0}</Text>
                 </Text>
                 <TouchableOpacity className="bg-white px-5 py-2 rounded-xl shadow-sm active:bg-gray-100">
                   <Text className="text-xs font-black text-gray-900 uppercase tracking-wider">
@@ -158,34 +200,34 @@ const Profile = () => {
             <MenuItem
               icon={<Feather name="heart" size={20} color="#4B5563" />}
               title="Your Wishlist"
-              onPress={() => {}}
+              onPress={() => router.push('/wishlist')}
             />
             <MenuItem
               icon={<Ionicons name="card-outline" size={20} color="#4B5563" />}
               title="E-Gift Cards"
-              onPress={() => {}}
+              onPress={() => { }}
             />
             <MenuItem
               icon={
                 <Ionicons name="location-outline" size={20} color="#4B5563" />
               }
               title="Saved Addresses"
-              subtitle="2 Addresses"
-              onPress={() => {}}
+              subtitle="Manage your saved addresses"
+              onPress={() => router.push('/addresses')}
             />
             <MenuItem
               icon={
                 <Ionicons name="person-outline" size={20} color="#4B5563" />
               }
               title="Profile Settings"
-              onPress={() => {}}
+              onPress={() => { }}
             />
             <MenuItem
               icon={
                 <Ionicons name="wallet-outline" size={20} color="#4B5563" />
               }
               title="Payment Methods"
-              onPress={() => {}}
+              onPress={() => { }}
             />
           </View>
 
@@ -202,7 +244,7 @@ const Profile = () => {
                 />
               }
               title="Notifications"
-              onPress={() => {}}
+              onPress={() => { }}
             />
             <MenuItem
               icon={
@@ -210,7 +252,7 @@ const Profile = () => {
               }
               title="Language"
               subtitle="English"
-              onPress={() => {}}
+              onPress={() => { }}
             />
             <MenuItem
               icon={
@@ -221,13 +263,16 @@ const Profile = () => {
                 />
               }
               title="About Us"
-              onPress={() => {}}
+              onPress={() => { }}
             />
           </View>
 
           {/* Logout */}
           <View className="px-4 mb-2">
-            <TouchableOpacity className="bg-red-50 border border-red-100 py-4 rounded-2xl items-center flex-row justify-center active:bg-red-100">
+            <TouchableOpacity
+              onPress={handleLogout}
+              className="bg-red-50 border border-red-100 py-4 rounded-2xl items-center flex-row justify-center active:bg-red-100"
+            >
               <Ionicons
                 name="log-out-outline"
                 size={20}

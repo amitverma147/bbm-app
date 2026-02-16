@@ -2,16 +2,25 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
-    ScrollView,
-    StatusBar,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ScrollView,
+  StatusBar,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useCart } from "../contexts/CartContext";
+import { useLocation } from "../contexts/LocationContext";
+import { useAuth } from "../contexts/AuthContext";
 import { searchAll } from "../services/searchService";
+import LocationPickerModal from "./LocationPickerModal";
+import AddressDetailsFormModal from "./AddressDetailsFormModal";
+import AddressListModal from "./AddressListModal";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { API_BASE_URL } from "../constants/Config";
+
 
 const QUICK_ACCESS = [
   {
@@ -47,18 +56,20 @@ const QUICK_ACCESS = [
 const Header = () => {
   const router = useRouter();
   const { getCartTotal } = useCart();
-  const [location, setLocation] = useState("Detecting location...");
+  const { location, pincode, selectedAddress, fetchAddresses, setSelectedAddress } = useLocation();
+  const { currentUser } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
 
   const cartTotal = getCartTotal();
 
-  // Simulate location detection
-  useEffect(() => {
-    setTimeout(() => {
-      setLocation("HOME - 123 Street, City");
-    }, 1500);
-  }, []);
+  // -- Location Modal State --
+  const [showLocationPicker, setShowLocationPicker] = useState(false);
+  const [showAddressForm, setShowAddressForm] = useState(false);
+  const [showAddressList, setShowAddressList] = useState(false);
+  const [pickedLocation, setPickedLocation] = useState<any>(null);
+  const [isSavingAddress, setIsSavingAddress] = useState(false);
 
+  // -- Search Handler --
   const handleSearch = async (text: string) => {
     setSearchQuery(text);
     if (text.length > 2) {
@@ -71,6 +82,82 @@ const Header = () => {
     }
   };
 
+  // -- Location Handlers --
+  const handleLocationPress = () => {
+    setShowAddressList(true);
+  };
+
+  const handleAddNewAddress = () => {
+    setShowAddressList(false);
+    setTimeout(() => setShowLocationPicker(true), 500);
+  };
+
+  const handleSelectAddress = (address: any) => {
+    setSelectedAddress(address);
+    setShowAddressList(false);
+  };
+
+  const handleLocationPicked = (loc: any) => {
+    setPickedLocation(loc);
+    setShowLocationPicker(false);
+    setTimeout(() => setShowAddressForm(true), 500); // Small delay for smooth transition
+  };
+
+  const handleSaveAddress = async (addressData: any) => {
+    setIsSavingAddress(true);
+    try {
+      const token = await AsyncStorage.getItem('auth_token');
+      if (!token) {
+        Alert.alert("Login Required", "Please login to save your address.");
+        router.push("/login");
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/user/addresses`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(addressData)
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setShowAddressForm(false);
+        fetchAddresses(); // Refresh addresses in context
+        Alert.alert("Success", "Address saved successfully");
+
+        // Optimistically select the new address
+        if (result.address || result.data) {
+          const rawAddr = result.address || result.data;
+          // Normalize the address to match what GET /user/addresses returns
+          const normalizedAddr = {
+            ...rawAddr,
+            address_line_1: rawAddr.address_line_1 || rawAddr.street_address,
+            // Ensure other fields are present if needed
+          };
+          setSelectedAddress(normalizedAddr);
+        }
+      } else {
+        Alert.alert("Error", result.message || "Failed to save address");
+      }
+
+    } catch (error) {
+      console.error("Save address error:", error);
+      Alert.alert("Error", "Something went wrong while saving address");
+    } finally {
+      setIsSavingAddress(false);
+    }
+  };
+
+
+  // Determine display string for location
+  const displayLocation = selectedAddress
+    ? `${selectedAddress.address_line_1 || selectedAddress.street_address || ''}, ${selectedAddress.city}`
+    : (location ? location : "Select Location");
+
   return (
     <SafeAreaView edges={["top"]} className="bg-white">
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
@@ -78,7 +165,10 @@ const Header = () => {
         {/* Top Row: Brand & Location + Actions */}
         <View className="flex-row items-center justify-between px-5 pt-3 pb-4">
           {/* Left: Brand & Location */}
-          <TouchableOpacity className="flex-1 mr-4">
+          <TouchableOpacity
+            className="flex-1 mr-4"
+            onPress={handleLocationPress}
+          >
             <View className="flex-row items-center mb-1">
               <View className="bg-orange-600 rounded-lg p-1 mr-2 shadow-sm">
                 <Ionicons name="cart" size={14} color="white" />
@@ -94,7 +184,7 @@ const Header = () => {
                 className="text-[11px] font-bold text-gray-700 ml-1 mr-1 max-w-[120px]"
                 numberOfLines={1}
               >
-                {location}
+                {displayLocation}
               </Text>
               <Ionicons name="chevron-down" size={12} color="#9CA3AF" />
             </View>
@@ -117,12 +207,12 @@ const Header = () => {
                 </View>
                 {cartTotal > 0 && (
                   <View className="absolute -top-1 -right-1 bg-orange-600 w-4 h-4 rounded-full items-center justify-center border-[1.5px] border-white">
-                    <Text className="text-[8px] font-bold text-white">2</Text>
+                    <Text className="text-[8px] font-bold text-white">{cartTotal}</Text>
                   </View>
                 )}
               </View>
               <Text className="text-[10px] font-bold text-gray-900 mt-1">
-                ₹{cartTotal}
+                CART
               </Text>
             </TouchableOpacity>
 
@@ -169,11 +259,10 @@ const Header = () => {
           {QUICK_ACCESS.map((item) => (
             <TouchableOpacity
               key={item.id}
-              className={`mr-3 flex-row items-center px-4 py-2.5 rounded-2xl border ${
-                item.active
-                  ? "bg-gray-900 border-gray-900 shadow-md"
-                  : "bg-white border-gray-200"
-              }`}
+              className={`mr-3 flex-row items-center px-4 py-2.5 rounded-2xl border ${item.active
+                ? "bg-gray-900 border-gray-900 shadow-md"
+                : "bg-white border-gray-200"
+                }`}
             >
               <Ionicons
                 name={
@@ -190,9 +279,8 @@ const Header = () => {
                 className="mr-2"
               />
               <Text
-                className={`text-xs font-bold ml-1.5 ${
-                  item.active ? "text-white" : "text-gray-600"
-                }`}
+                className={`text-xs font-bold ml-1.5 ${item.active ? "text-white" : "text-gray-600"
+                  }`}
               >
                 {item.title}
               </Text>
@@ -200,6 +288,33 @@ const Header = () => {
           ))}
         </ScrollView>
       </View>
+
+      {/* Modals for Location Selection */}
+      <AddressListModal
+        visible={showAddressList}
+        onClose={() => setShowAddressList(false)}
+        onAddNew={handleAddNewAddress}
+        onSelect={handleSelectAddress}
+      />
+
+      <LocationPickerModal
+        visible={showLocationPicker}
+        onClose={() => setShowLocationPicker(false)}
+        onConfirm={handleLocationPicked}
+      />
+
+      <AddressDetailsFormModal
+        visible={showAddressForm}
+        onClose={() => setShowAddressForm(false)}
+        onBack={() => {
+          setShowAddressForm(false);
+          setShowLocationPicker(true);
+        }}
+        onSave={handleSaveAddress}
+        initialLocation={pickedLocation}
+        loading={isSavingAddress}
+      />
+
     </SafeAreaView>
   );
 };

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { API_BASE_URL } from "../constants/Config";
+import * as Location from 'expo-location';
 
 interface LocationContextType {
     pincode: string;
@@ -13,6 +14,7 @@ interface LocationContextType {
     setSelectedAddress: (address: any) => void;
     clearLocation: () => void;
     fetchAddresses: () => void;
+    detectCurrentLocation: () => Promise<void>;
     isLocationSet: boolean;
 }
 
@@ -98,11 +100,11 @@ export const LocationProvider = ({ children }: { children: React.ReactNode }) =>
             // We need authentication token here. 
             // Ideally AuthContext should provide an axios instance with interceptors,
             // or we get token from storage/AuthContext.
-            const token = await AsyncStorage.getItem('userToken'); // Or however token is stored
+            const token = await AsyncStorage.getItem('auth_token'); // Or however token is stored
 
             if (!token) return;
 
-            const response = await fetch(`${API_BASE_URL}/user-addresses`, {
+            const response = await fetch(`${API_BASE_URL}/user/addresses`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
@@ -124,6 +126,68 @@ export const LocationProvider = ({ children }: { children: React.ReactNode }) =>
         }
     };
 
+    const detectCurrentLocation = async () => {
+        try {
+            let { status } = await Location.requestForegroundPermissionsAsync();
+            if (status !== 'granted') {
+                console.warn('Permission to access location was denied');
+                return;
+            }
+
+            let loc = await Location.getCurrentPositionAsync({});
+            const { latitude, longitude } = loc.coords;
+
+            // Try backend geocode
+            try {
+                const token = await AsyncStorage.getItem('auth_token');
+                let addressData = null;
+
+                if (token) {
+                    const response = await fetch(`${API_BASE_URL}/user/addresses/geocode?lat=${latitude}&lng=${longitude}`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    const data = await response.json();
+                    if (data.success) {
+                        addressData = data.data;
+                    }
+                }
+
+                // If backend fails or no token, try direct OSM or fallback
+                if (!addressData) {
+                    // Fallback to nominatim direct if needed, or just set coords
+                    const response = await fetch(
+                        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`,
+                        { headers: { 'User-Agent': 'BigBestMartApp/1.0' } }
+                    );
+                    addressData = await response.json();
+                }
+
+                if (addressData) {
+                    // Format as a temporary address object
+                    const tempAddress = {
+                        id: 'current_location',
+                        address_line_1: addressData.display_name?.split(',')[0] || 'Current Location',
+                        city: addressData.address?.city || addressData.address?.town || addressData.address?.village || '',
+                        state: addressData.address?.state || '',
+                        postal_code: addressData.address?.postcode || '',
+                        is_temp: true, // Marker for temporary location
+                        ...addressData
+                    };
+                    setSelectedAddress(tempAddress);
+                } else {
+                    setLocation(`Lat: ${latitude.toFixed(4)}, Lng: ${longitude.toFixed(4)}`);
+                }
+
+            } catch (e) {
+                console.warn("Reverse geocode failed", e);
+                setLocation(`Lat: ${latitude.toFixed(4)}, Lng: ${longitude.toFixed(4)}`);
+            }
+
+        } catch (error) {
+            console.warn("Error getting location", error);
+        }
+    };
+
     const value = {
         pincode,
         location,
@@ -135,6 +199,7 @@ export const LocationProvider = ({ children }: { children: React.ReactNode }) =>
         setSelectedAddress,
         clearLocation,
         fetchAddresses,
+        detectCurrentLocation,
         isLocationSet: !!pincode || !!location || !!selectedAddress,
     };
 

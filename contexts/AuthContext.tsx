@@ -96,10 +96,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             const data = await response.json();
 
             if (!response.ok || !data.success) {
+                console.log("[AuthContext] Login failed:", data.error);
                 throw new Error(data.error || 'Login failed');
             }
 
             const { token, user } = data;
+            console.log("[AuthContext] Login success, token:", token ? "YES" : "NO", "User:", user?.email || user?.phone);
+
             await AsyncStorage.setItem(AUTH_TOKEN_KEY, token);
             await AsyncStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
 
@@ -108,6 +111,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
             return { success: true, user };
         } catch (err: any) {
+            console.error("[AuthContext] Login error catch:", err);
             setError(err.message);
             return { success: false, error: err.message };
         } finally {

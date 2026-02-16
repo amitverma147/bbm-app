@@ -22,25 +22,34 @@ import { useAuth } from "../../contexts/AuthContext";
 import { API_BASE_URL } from "../../constants/Config";
 import Animated, { FadeInUp, FadeInDown } from "react-native-reanimated";
 import * as CouponOnApi from "../../services/couponService";
+import * as OrderService from "../../services/orderService";
+import * as WalletService from "../../services/walletService";
 
 import LocationPickerModal from '../../components/LocationPickerModal';
+import PaymentModal from '../../components/PaymentModal';
 import AddressDetailsFormModal from '../../components/AddressDetailsFormModal';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width } = Dimensions.get("window");
 
 const CartScreen = () => {
-  const { cartItems, getCartTotal, updateQuantity, removeFromCart, deleteFromCart } = useCart();
+  const { cartItems, getCartTotal, updateQuantity, removeFromCart, deleteFromCart, addToCart, clearCart } = useCart();
   const { pincode, location, selectedAddress, addresses, fetchAddresses, setSelectedAddress, isLoadingAddresses } = useLocation();
   const { getDeliverySettings, getUpsellMessage, defaultDeliveryCharge } = useDelivery();
   const router = useRouter();
-  const { currentUser } = useAuth();
+  const { currentUser, getAccessToken } = useAuth();
 
   const [isBillDetailsOpen, setIsBillDetailsOpen] = useState(true);
   const [checkingAvailability, setCheckingAvailability] = useState(false);
   const [availabilityData, setAvailabilityData] = useState<any>({});
   const [relatedProducts, setRelatedProducts] = useState<any[]>([]);
   const [loadingRelated, setLoadingRelated] = useState(false);
+
+  // Payment State
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'COD' | 'WALLET' | 'ONLINE'>('COD');
+  const [walletBalance, setWalletBalance] = useState(0);
+  const [isWalletFrozen, setIsWalletFrozen] = useState(false);
+  const [isPlacingOrder, setIsPlacingOrder] = useState(false);
 
   // Charges State
   const [charges, setCharges] = useState({
@@ -50,7 +59,6 @@ const CartScreen = () => {
     delivery_charge: 0,
     discount_charge: 0,
   });
-  const [loadingCharges, setLoadingCharges] = useState(false);
 
   // Coupon State
   const [showCouponsModal, setShowCouponsModal] = useState(false);
@@ -64,6 +72,7 @@ const CartScreen = () => {
 
   // Address Modal State
   const [showAddressModal, setShowAddressModal] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
 
   // New Address Flow State
   const [showLocationPicker, setShowLocationPicker] = useState(false);
@@ -87,13 +96,13 @@ const CartScreen = () => {
   const handleSaveAddress = async (addressData: any) => {
     setIsSavingAddress(true);
     try {
-      const token = await AsyncStorage.getItem('userToken');
+      const token = await getAccessToken(); // Use helper or AsyncStorage.getItem('auth_token')
       if (!token) {
         Alert.alert("Error", "You must be logged in to save an address");
         return;
       }
 
-      const response = await fetch(`${API_BASE_URL}/user-addresses`, {
+      const response = await fetch(`${API_BASE_URL}/user/addresses`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -123,6 +132,17 @@ const CartScreen = () => {
 
 
   // --- Calculations ---
+
+  // 1. Availability Calculation
+  const unavailableItems = useMemo(() => {
+    return cartItems.filter(item => {
+      const key = item.variant_id ? `${item.id}-${item.variant_id}` : String(item.id);
+      return availabilityData[key] && !availabilityData[key].available;
+    });
+  }, [cartItems, availabilityData]);
+
+  const allItemsUnavailable = cartItems.length > 0 && unavailableItems.length === cartItems.length;
+  const hasUnavailableItems = unavailableItems.length > 0;
 
   // 1. Item Total (Selling Price)
   const itemTotal = useMemo(() => {
@@ -155,7 +175,6 @@ const CartScreen = () => {
   const milestoneDiscount = parseFloat(deliverySettings.appliedMilestone?.discount as any) || 0;
 
   // 5. Grand Total to Pay
-  // Logic: ItemTotal + Fees + Delivery - MilestoneDiscount - Coupon - GlobalDiscount
   const totalToPay = Math.max(0,
     itemTotal +
     feeTotal +
@@ -204,7 +223,11 @@ const CartScreen = () => {
   // Check Availability
   useEffect(() => {
     const verifyAvailability = async () => {
-      if (cartItems.length === 0 || !pincode) return;
+      console.log("Verify Availability Triggered. CartItems:", cartItems.length, "Pincode:", pincode);
+      if (cartItems.length === 0 || !pincode) {
+        console.log("Skipping availability check due to missing items or pincode");
+        return;
+      }
       setCheckingAvailability(true);
       try {
         const response = await fetch(`${API_BASE_URL}/productsroute/availability/check-cart`, {
@@ -251,6 +274,7 @@ const CartScreen = () => {
         });
         const data = await response.json();
         if (data.success) {
+          console.log("Related Products Data:", JSON.stringify(data.products, null, 2));
           setRelatedProducts(data.products || []);
         }
       } catch (error) {
@@ -262,11 +286,30 @@ const CartScreen = () => {
     fetchRelated();
   }, [cartItems.length]);
 
+  // Fetch Wallet Balance
+  useEffect(() => {
+    const fetchWallet = async () => {
+      try {
+        const token = await getAccessToken();
+        if (token) {
+          const data = await WalletService.getWalletDetails(token);
+          if (data.success && data.wallet) {
+            setWalletBalance(parseFloat(data.wallet.balance));
+            setIsWalletFrozen(data.wallet.is_frozen);
+          }
+        }
+      } catch (error) {
+        console.warn("Failed to fetch wallet", error);
+      }
+    };
+    fetchWallet();
+  }, [currentUser]);
+
   // Fetch Coupons when modal opens
   useEffect(() => {
     if (showCouponsModal) {
       const fetchCoupons = async () => {
-        const token = null; // Replace with auth token logic if needed
+        const token = await getAccessToken();
         const result = await CouponOnApi.getAvailableCoupons(itemTotal + feeTotal, token);
         if (result.success) {
           setAvailableCoupons(result.data || []);
@@ -291,7 +334,7 @@ const CartScreen = () => {
     setCouponError("");
 
     try {
-      const token = null;
+      const token = await getAccessToken();
       const sessionId = `session_${Date.now()}`;
       const cartData = {
         user_id: currentUser?.id || null,
@@ -340,6 +383,167 @@ const CartScreen = () => {
     setSelectedAddress(address);
     setShowAddressModal(false);
   };
+
+  const handlePlaceOrder = async () => {
+    if (!selectedAddress && !pincode) {
+      Alert.alert("Missing Location", "Please select a delivery location first.");
+      setShowAddressModal(true);
+      return;
+    }
+
+    if (allItemsUnavailable) {
+      Alert.alert("Unavailable", "All items in your cart are currently unavailable at this location.");
+      return;
+    }
+
+    if (hasUnavailableItems) {
+      Alert.alert(
+        "Items Unavailable",
+        "Some items in your cart are not available. Do you want to proceed with only available items?",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Proceed", onPress: () => {
+              setShowPaymentModal(true);
+            }
+          }
+        ]
+      );
+      return;
+    }
+
+    setShowPaymentModal(true);
+  };
+
+  const handlePaymentMethodSelect = (method: 'COD' | 'WALLET' | 'ONLINE') => {
+    setSelectedPaymentMethod(method);
+    setShowPaymentModal(false);
+    // Small delay to allow modal to close before processing (optional but good for UX/Animations)
+    setTimeout(() => {
+      processOrder(method);
+    }, 300);
+  };
+
+  const processOrder = async (method: 'COD' | 'WALLET' | 'ONLINE') => {
+    setIsPlacingOrder(true);
+    try {
+      const token = await getAccessToken();
+      if (!token) {
+        Alert.alert("Login Required", "Please login to place an order");
+        router.push("/login"); // Fixed route
+        return;
+      }
+
+      // Construct Address String if object
+      let addressToUse = "";
+      let receiverName = currentUser?.user_metadata?.full_name || "Customer";
+      let mobile = currentUser?.phone || "";
+
+      if (selectedAddress) {
+        addressToUse = `${selectedAddress.address_line_1 || selectedAddress.street_address}, ${selectedAddress.city}, ${selectedAddress.state} - ${selectedAddress.postal_code}`;
+        receiverName = selectedAddress.name || receiverName;
+        mobile = selectedAddress.mobile || mobile;
+      } else {
+        addressToUse = `${location || 'Home'}, ${pincode}`;
+      }
+
+      const commonPayload = {
+        user_id: currentUser.id,
+        items: cartItems.map(item => ({
+          product_id: item.id,
+          variant_id: item.variant_id,
+          quantity: item.quantity,
+          price: item.price
+        })),
+        subtotal: itemTotal,
+        shipping: deliveryCharge,
+        total: totalToPay,
+        address: addressToUse,
+        receiver_name: receiverName,
+        mobile: mobile,
+        coupon_code: appliedCoupon ? appliedCoupon.code : undefined,
+        coupon_discount: couponDiscount,
+        // Charges
+        handling_charge: charges.handling_charge,
+        surge_charge: charges.surge_charge,
+        platform_charge: charges.platform_charge,
+        discount_charge: charges.discount_charge,
+        payment_method: method === 'ONLINE' ? 'Razorpay' : method
+      };
+
+      if (method === 'WALLET') {
+        if (walletBalance < totalToPay) {
+          Alert.alert("Insufficient Balance", "Your wallet balance is insufficient for this order.");
+          setIsPlacingOrder(false);
+          return;
+        }
+
+        // Wallet Order Payload
+        const walletPayload = {
+          ...commonPayload,
+          payment_method: "WALLET" as "WALLET",
+          user_name: receiverName,
+          product_name: cartItems.map(i => i.name).join(", "),
+          product_total_price: itemTotal,
+          user_address: addressToUse,
+          order_status: "pending" as "pending",
+          payment_status: "completed" as "completed",
+          total_price: totalToPay,
+          delivery_address: selectedAddress || { address: addressToUse, mobile, name: receiverName },
+          product_id: cartItems[0].id // Fallback
+        };
+
+        const response = await WalletService.createWalletOrder(walletPayload, token);
+        if (response.success) {
+          Alert.alert("Success", "Order placed successfully with Wallet!");
+          clearCart();
+          router.push("/orders");
+        } else {
+          Alert.alert("Error", response.error || "Failed to place order");
+        }
+
+      } else if (method === 'COD') {
+        const response = await OrderService.placeOrder({
+          ...commonPayload,
+          payment_method: 'COD'
+        }, token);
+
+        if (response.success) {
+          Alert.alert("Success", "Order placed successfully!");
+          clearCart();
+          router.push("/orders");
+        } else {
+          Alert.alert("Error", response.error || "Failed to place order");
+        }
+      } else {
+        // ONLINE
+        Alert.alert("Coming Soon", "Online payment is currently under maintenance. Please use COD or Wallet.");
+        setIsPlacingOrder(false);
+        return;
+      }
+
+    } catch (error: any) {
+      Alert.alert("Error", error.message || "Something went wrong");
+    } finally {
+      setIsPlacingOrder(false);
+    }
+  };
+
+  const handleAddRelatedProduct = (product: any) => {
+    const price = parseFloat(product.price || product.variants?.[0]?.price || 0);
+    const image = product.media?.[0]?.url || product.image || "https://example.com/placeholder.png";
+
+    addToCart({
+      id: product.id,
+      variant_id: product.variants?.[0]?.id, // Default to first variant if exists
+      name: product.name,
+      price: price,
+      image: image,
+      quantity: 1,
+      isBulkOrder: false
+    });
+    // Optional: Show toast or feedback
+  }
 
   // --- Render Items ---
 
@@ -480,7 +684,7 @@ const CartScreen = () => {
             <Text className="text-[10px] text-orange-600 font-bold uppercase tracking-wider">Delivering to</Text>
             <Text numberOfLines={1} className="text-sm font-bold text-gray-800">
               {selectedAddress
-                ? `${selectedAddress.address_line_1}, ${selectedAddress.city} - ${selectedAddress.postal_code || selectedAddress.pincode}`
+                ? `${selectedAddress.address_line_1 || selectedAddress.street_address || ''}, ${selectedAddress.city} - ${selectedAddress.postal_code || selectedAddress.pincode}`
                 : (pincode ? `${pincode}, ${location || 'Home'}` : 'Select delivery location')}
             </Text>
           </View>
@@ -595,20 +799,24 @@ const CartScreen = () => {
                       {deliveryCharge === 0 ? "FREE" : `₹${deliveryCharge.toFixed(0)}`}
                     </Text>
                   </View>
-                  <View className="flex-row justify-between">
-                    <Text className="text-gray-500 text-sm">Handling Charge</Text>
-                    <Text className="text-gray-900 font-bold text-sm">₹{charges.handling_charge.toFixed(0)}</Text>
-                  </View>
+                  {charges.handling_charge > 0 && (
+                    <View className="flex-row justify-between">
+                      <Text className="text-gray-500 text-sm">Handling Charge</Text>
+                      <Text className="text-gray-900 font-bold text-sm">₹{charges.handling_charge.toFixed(0)}</Text>
+                    </View>
+                  )}
                   {charges.surge_charge > 0 && (
                     <View className="flex-row justify-between">
                       <Text className="text-gray-500 text-sm">Surge Charge</Text>
                       <Text className="text-gray-900 font-bold text-sm">₹{charges.surge_charge.toFixed(0)}</Text>
                     </View>
                   )}
-                  <View className="flex-row justify-between">
-                    <Text className="text-gray-500 text-sm">Platform Fee</Text>
-                    <Text className="text-gray-900 font-bold text-sm">₹{charges.platform_charge.toFixed(0)}</Text>
-                  </View>
+                  {charges.platform_charge > 0 && (
+                    <View className="flex-row justify-between">
+                      <Text className="text-gray-500 text-sm">Platform Fee</Text>
+                      <Text className="text-gray-900 font-bold text-sm">₹{charges.platform_charge.toFixed(0)}</Text>
+                    </View>
+                  )}
 
                   {couponDiscount > 0 && (
                     <View className="flex-row justify-between">
@@ -616,262 +824,204 @@ const CartScreen = () => {
                       <Text className="text-green-600 font-bold text-sm">-₹{couponDiscount.toFixed(2)}</Text>
                     </View>
                   )}
-
                   {milestoneDiscount > 0 && (
                     <View className="flex-row justify-between">
                       <Text className="text-green-600 text-sm font-medium">Delivery Discount</Text>
                       <Text className="text-green-600 font-bold text-sm">-₹{milestoneDiscount.toFixed(2)}</Text>
                     </View>
                   )}
+                  <View className="h-[1px] bg-gray-100 my-2" />
+                  <View className="flex-row justify-between items-center">
+                    <Text className="text-gray-900 font-black text-lg">To Pay</Text>
+                    <Text className="text-[#FF6B00] font-black text-xl">₹{totalToPay.toFixed(0)}</Text>
+                  </View>
                 </View>
               )}
-
-              <View className="p-4 border-t border-gray-50 flex-row justify-between items-center">
-                <Text className="text-lg font-black text-gray-900">Grand Total</Text>
-                <Text className="text-xl font-black text-[#FF6B00]">₹{totalToPay.toFixed(0)}</Text>
-              </View>
             </View>
 
             {/* Super Savings Highlight */}
-            <View className="mx-4 mt-4 bg-green-50 rounded-2xl p-4 border border-green-100 flex-row items-center">
-              <View className="bg-green-100 p-2 rounded-full">
-                <Ionicons name="sparkles" size={18} color="#16a34a" />
+            {totalSavings > 0 && (
+              <View className="mx-4 mt-4 bg-green-50 rounded-2xl p-4 border border-green-100 flex-row items-center">
+                <View className="bg-green-100 p-2 rounded-full">
+                  <Ionicons name="sparkles" size={18} color="#16a34a" />
+                </View>
+                <Text className="flex-1 ml-3 text-sm font-bold text-green-800">
+                  You are saving ₹{totalSavings.toFixed(0)} on this order!
+                </Text>
               </View>
-              <Text className="flex-1 ml-3 text-sm font-bold text-green-800">
-                You are saving ₹{totalSavings.toFixed(0)} on this order!
-              </Text>
-            </View>
+            )}
 
             {/* Related Products */}
             {relatedProducts.length > 0 && (
               <View className="mt-8">
                 <View className="flex-row justify-between items-center px-4 mb-4">
                   <Text className="text-lg font-black text-gray-900 italic">You might also like</Text>
-                  <TouchableOpacity>
-                    <Text className="text-[#FF6B00] font-bold text-xs">MORE</Text>
-                  </TouchableOpacity>
                 </View>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16 }}>
-                  {relatedProducts.map((product, idx) => (
-                    <TouchableOpacity
-                      key={product.id}
-                      className="mr-3 w-32 bg-white rounded-2xl p-2 shadow-sm border border-gray-100"
-                      onPress={() => router.push(`/product/${product.id}` as any)}
-                    >
-                      <Image
-                        source={{ uri: product.image_url || product.media?.[0]?.url || "https://example.com/placeholder.png" }}
-                        className="w-full h-24 rounded-xl mb-2 bg-gray-50"
-                        resizeMode="contain"
-                      />
-                      <Text numberOfLines={1} className="text-xs font-bold text-gray-800">{product.name}</Text>
-                      <View className="flex-row justify-between items-center mt-1">
-                        <Text className="text-[#FF6B00] font-black text-sm">₹{product.price}</Text>
-                        <View className="bg-[#FF6B00] p-1 rounded-md">
-                          <Feather name="plus" size={12} color="white" />
+                  {relatedProducts.map((product, idx) => {
+                    const imageUrl = product.media?.[0]?.url || product.image || "https://example.com/placeholder.png";
+                    const price = product.price || product.variants?.[0]?.price || "0";
+
+                    return (
+                      <TouchableOpacity
+                        key={product.id}
+                        className="mr-3 w-32 bg-white rounded-2xl p-2 shadow-sm border border-gray-100"
+                        onPress={() => router.push(`/product/${product.id}` as any)}
+                      >
+                        <Image
+                          source={{ uri: imageUrl }}
+                          className="w-full h-24 rounded-xl mb-2 bg-gray-50"
+                          resizeMode="contain"
+                        />
+                        <Text numberOfLines={2} className="text-xs font-bold text-gray-800 h-8 mb-1">{product.name}</Text>
+                        <View className="flex-row justify-between items-center mt-1">
+                          <Text className="text-[#FF6B00] font-black text-sm">₹{price}</Text>
+                          <TouchableOpacity
+                            onPress={() => handleAddRelatedProduct(product)}
+                            className="bg-[#FF6B00] p-1.5 rounded-lg active:opacity-80"
+                          >
+                            <Feather name="plus" size={14} color="white" />
+                          </TouchableOpacity>
                         </View>
-                      </View>
-                    </TouchableOpacity>
-                  ))}
+                      </TouchableOpacity>
+                    );
+                  })}
                 </ScrollView>
               </View>
             )}
           </View>
         )}
-        contentContainerStyle={{ paddingBottom: 100 }}
-        showsVerticalScrollIndicator={false}
       />
-
-      {/* Sticky Footer */}
-      <View className="absolute bottom-0 w-full bg-white border-t border-gray-100 px-4 pt-4 pb-8 shadow-2xl">
-        <View className="flex-row items-center justify-between mb-4">
-          <View className="flex-row items-center">
-            <View className="bg-blue-50 p-2 rounded-lg">
-              <Feather name="user" size={16} color="#3B82F6" />
-            </View>
-            <Text className="ml-2 text-xs font-bold text-gray-600">Ordering for <Text className="text-[#FF6B00]">{currentUser?.user_metadata?.full_name || "Customer"}</Text></Text>
-          </View>
-          <TouchableOpacity>
-            <Text className="text-[#FF6B00] font-black text-xs">CHANGE</Text>
-          </TouchableOpacity>
-        </View>
-
-        <TouchableOpacity
-          className={`h-16 rounded-2xl flex-row items-center justify-between px-6 shadow-xl active:scale-95 ${!selectedAddress && !pincode ? 'bg-gray-400' : 'bg-[#FF6B00]'}`}
-          disabled={!selectedAddress && !pincode}
-          onPress={() => {
-            if (!selectedAddress && !pincode) {
-              Alert.alert("Missing Location", "Please select a delivery location first.");
-              setShowAddressModal(true);
-            } else {
-              Alert.alert("Checkout", "Proceeding to checkout...");
-            }
-          }}
-        >
-          <View>
-            <Text className="text-white font-black text-lg">₹{totalToPay.toFixed(0)}</Text>
-            <Text className="text-white/80 text-[10px] uppercase font-bold tracking-widest">Grand Total</Text>
-          </View>
-          <View className="flex-row items-center">
-            <Text className="text-white font-black text-base mr-2">PLACE ORDER</Text>
-            <Feather name="arrow-right" size={20} color="white" />
-          </View>
-        </TouchableOpacity>
-      </View>
 
       {/* Coupons Modal */}
       <Modal
         visible={showCouponsModal}
         animationType="slide"
-        transparent={true}
+        presentationStyle="pageSheet"
         onRequestClose={() => setShowCouponsModal(false)}
       >
-        <View className="flex-1 bg-black/50 justify-end">
-          <View className="bg-white rounded-t-3xl h-[80%] pt-6">
-            <View className="px-6 flex-row justify-between items-center mb-6">
-              <Text className="text-xl font-black text-gray-900">Apply Coupon</Text>
-              <TouchableOpacity onPress={() => setShowCouponsModal(false)} className="bg-gray-100 p-2 rounded-full">
-                <Feather name="x" size={20} color="black" />
+        <View className="flex-1 bg-gray-50">
+          <View className="p-4 bg-white border-b border-gray-100 flex-row justify-between items-center">
+            <Text className="text-lg font-black text-gray-900">Apply Coupon</Text>
+            <TouchableOpacity onPress={() => setShowCouponsModal(false)}>
+              <Feather name="x" size={24} color="black" />
+            </TouchableOpacity>
+          </View>
+
+          <View className="p-4">
+            <View className="flex-row items-center border border-gray-200 rounded-xl p-2 bg-white mb-6">
+              <TextInput
+                className="flex-1 px-2 font-bold text-gray-800"
+                placeholder="Enter Coupon Code"
+                value={couponCode}
+                onChangeText={setCouponCode}
+                autoCapitalize="characters"
+              />
+              <TouchableOpacity
+                onPress={() => handleApplyCoupon(couponCode)}
+                disabled={!couponCode || couponLoading}
+                className={`px-4 py-2 rounded-lg ${!couponCode ? 'bg-gray-200' : 'bg-[#FF6B00]'}`}
+              >
+                {couponLoading ? <ActivityIndicator size="small" color="white" /> : <Text className="text-white font-bold">APPLY</Text>}
               </TouchableOpacity>
             </View>
 
-            <View className="px-6 mb-6">
-              <View className="flex-row items-center border border-gray-200 rounded-xl p-2 pr-2">
-                <TextInput
-                  className="flex-1 px-3 font-bold text-gray-800"
-                  placeholder="Enter coupon code"
-                  placeholderTextColor="#9ca3af"
-                  value={couponCode}
-                  onChangeText={setCouponCode}
-                  autoCapitalize="characters"
-                />
-                <TouchableOpacity
-                  onPress={() => handleApplyCoupon(couponCode)}
-                  disabled={!couponCode || couponLoading}
-                  className="bg-gray-900 py-3 px-6 rounded-lg"
-                >
-                  {couponLoading ? (
-                    <ActivityIndicator color="white" size="small" />
-                  ) : (
-                    <Text className="text-white font-bold text-xs uppercase">Apply</Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-              {couponError ? <Text className="text-red-500 text-xs mt-2 ml-1">{couponError}</Text> : null}
-            </View>
+            <Text className="text-gray-500 font-bold mb-3 uppercase text-xs tracking-wider">Available Coupons</Text>
 
-            <View className="bg-gray-50 flex-1 px-6 pt-6">
-              <Text className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4">Available Coupons</Text>
-              <FlatList
-                data={availableCoupons}
-                keyExtractor={(item) => item.code}
-                renderItem={({ item }) => (
-                  <TouchableOpacity
-                    onPress={() => handleApplyCoupon(item.code)}
-                    className="bg-white p-4 rounded-xl border border-gray-200 mb-3 flex-row items-center justify-between"
-                  >
-                    <View className="border-l-4 border-[#FF6B00] pl-3">
-                      <Text className="font-black text-gray-900 text-lg">{item.code}</Text>
-                      <Text className="text-xs text-gray-500 mt-1">{item.description || "Save on your order"}</Text>
+            <FlatList
+              data={availableCoupons}
+              keyExtractor={item => item.id}
+              renderItem={({ item }) => (
+                <View className="bg-white p-4 rounded-xl border border-gray-100 mb-3 shadow-sm relative overflow-hidden">
+                  <View className="absolute left-0 top-0 bottom-0 w-1.5 bg-[#FF6B00]" />
+                  <View className="flex-row justify-between items-start">
+                    <View>
+                      <Text className="font-black text-lg text-gray-800">{item.code}</Text>
+                      <Text className="text-gray-500 text-xs mt-1">{item.description || "Get discount on your order"}</Text>
                     </View>
-                    <Text className="text-[#FF6B00] font-bold text-xs">APPLY</Text>
-                  </TouchableOpacity>
-                )}
-                showsVerticalScrollIndicator={false}
-                ListEmptyComponent={
-                  <Text className="text-center text-gray-400 mt-10">No coupons available for this order.</Text>
-                }
-              />
-            </View>
+                    <TouchableOpacity
+                      onPress={() => handleApplyCoupon(item.code)}
+                      className="bg-orange-50 px-3 py-1.5 rounded-lg border border-orange-100"
+                    >
+                      <Text className="text-[#FF6B00] font-bold text-xs uppercase">Apply</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <View className="mt-3 pt-3 border-t border-dashed border-gray-200 flex-row">
+                    <Text className="text-xs text-gray-400">Min Order: ₹{item.min_order_value}</Text>
+                    {item.max_discount && <Text className="text-xs text-gray-400 ml-4">Max Discount: ₹{item.max_discount}</Text>}
+                  </View>
+                </View>
+              )}
+            />
           </View>
         </View>
       </Modal>
 
-      {/* Address Selection Modal */}
+      <PaymentModal
+        visible={showPaymentModal}
+        onClose={() => setShowPaymentModal(false)}
+        onSelectMethod={handlePaymentMethodSelect}
+        walletBalance={walletBalance}
+        isWalletFrozen={isWalletFrozen}
+        totalAmount={totalToPay}
+      />
+
+      {/* Address Modal */}
       <Modal
         visible={showAddressModal}
         animationType="slide"
-        transparent={true}
         onRequestClose={() => setShowAddressModal(false)}
       >
-        <View className="flex-1 bg-black/50 justify-end">
-          <View className="bg-white rounded-t-3xl h-[60%] pt-6">
-            <View className="px-6 flex-row justify-between items-center mb-6">
-              <Text className="text-xl font-black text-gray-900">Select Delivery Location</Text>
-              <TouchableOpacity onPress={() => setShowAddressModal(false)} className="bg-gray-100 p-2 rounded-full">
-                <Feather name="x" size={20} color="black" />
-              </TouchableOpacity>
-            </View>
-
-            <View className="px-6 flex-1 bg-gray-50 pt-4">
-              {isLoadingAddresses ? (
-                <ActivityIndicator size="large" color="#FF6B00" className="mt-10" />
-              ) : (
-                <FlatList
-                  data={addresses}
-                  keyExtractor={(item) => item.id.toString()}
-                  renderItem={({ item }) => (
-                    <TouchableOpacity
-                      onPress={() => handleSelectAddress(item)}
-                      className={`p-4 rounded-xl border mb-3 flex-row items-start ${selectedAddress?.id === item.id ? 'bg-orange-50 border-[#FF6B00]' : 'bg-white border-gray-200'}`}
-                    >
-                      <View className={`mt-1 p-1 rounded-full border ${selectedAddress?.id === item.id ? 'border-[#FF6B00] bg-[#FF6B00]' : 'border-gray-300 bg-white'}`}>
-                        {selectedAddress?.id === item.id && <Feather name="check" size={10} color="white" />}
-                      </View>
-                      <View className="ml-4 flex-1">
-                        <View className="flex-row items-center mb-1">
-                          <Text className="font-bold text-gray-900 text-base">{item.type || "Home"}</Text>
-                          {item.is_default && (
-                            <View className="bg-gray-200 px-2 py-0.5 rounded ml-2">
-                              <Text className="text-[10px] font-bold text-gray-600">DEFAULT</Text>
-                            </View>
-                          )}
-                        </View>
-                        <Text className="text-gray-600 text-sm leading-5">
-                          {item.address_line_1}, {item.address_line_2 ? item.address_line_2 + ", " : ""}{item.city}, {item.state} - {item.postal_code || item.pincode}
-                        </Text>
-                        <Text className="text-gray-500 text-xs mt-1">Phone: {item.phone}</Text>
-                      </View>
-                    </TouchableOpacity>
-                  )}
-                  ListEmptyComponent={
-                    <View className="items-center justify-center mt-10">
-                      <Text className="text-gray-400 mb-4">No addresses found</Text>
-                      <TouchableOpacity
-                        onPress={handleAddNewAddress}
-                        className="bg-[#FF6B00] px-6 py-2 rounded-full"
-                      >
-                        <Text className="text-white font-bold">Add New Address</Text>
-                      </TouchableOpacity>
-                    </View>
-                  }
-                  ListFooterComponent={
-                    addresses.length > 0 ? (
-                      <TouchableOpacity
-                        onPress={handleAddNewAddress}
-                        className="mt-4 flex-row items-center justify-center border border-dashed border-gray-300 p-4 rounded-xl"
-                      >
-                        <Feather name="plus" size={16} color="#4b5563" />
-                        <Text className="text-gray-600 font-bold ml-2">Add Another Address</Text>
-                      </TouchableOpacity>
-                    ) : null
-                  }
-                />
-              )}
-            </View>
+        <View className="flex-1 bg-gray-50">
+          <View className="flex-row items-center justify-between p-4 bg-white border-b border-gray-100">
+            <Text className="text-lg font-black text-gray-800">Select Delivery Location</Text>
+            <TouchableOpacity onPress={() => setShowAddressModal(false)}>
+              <Feather name="x" size={24} color="#4b5563" />
+            </TouchableOpacity>
           </View>
+
+          <FlatList
+            data={addresses}
+            keyExtractor={(item) => item.id.toString()}
+            contentContainerStyle={{ padding: 16 }}
+            ListHeaderComponent={
+              <TouchableOpacity
+                onPress={handleAddNewAddress}
+                className="bg-white p-4 rounded-xl border border-dashed border-orange-300 flex-row items-center justify-center mb-4 active:bg-orange-50"
+              >
+                <Feather name="plus" size={20} color="#FF6B00" />
+                <Text className="text-[#FF6B00] font-bold ml-2">Add New Address</Text>
+              </TouchableOpacity>
+            }
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                onPress={() => handleSelectAddress(item)}
+                className={`p-4 bg-white rounded-xl mb-3 border ${selectedAddress?.id === item.id ? 'border-orange-500 bg-orange-50' : 'border-gray-100'}`}
+              >
+                <View className="flex-row justify-between mb-1">
+                  <Text className="font-bold text-gray-900">{item.name}</Text>
+                  <View className="bg-gray-100 px-2 py-0.5 rounded text-xs">
+                    <Text className="text-[10px] text-gray-500 uppercase">{item.address_type || 'HOME'}</Text>
+                  </View>
+                </View>
+                <Text className="text-gray-600 leading-5">
+                  {item.address_line_1}, {item.street_address}, {item.city}, {item.state} - {item.postal_code}
+                </Text>
+                <Text className="text-gray-500 text-xs mt-1">Mobile: {item.mobile}</Text>
+              </TouchableOpacity>
+            )}
+          />
         </View>
       </Modal>
 
-      {/* New Address Flow Modals */}
+      {/* Location Picker Modal */}
       <LocationPickerModal
         visible={showLocationPicker}
-        onClose={() => {
-          setShowLocationPicker(false);
-          setShowAddressModal(true);
-        }}
+        onClose={() => setShowLocationPicker(false)}
         onConfirm={handleLocationPicked}
       />
 
+      {/* Address Details Form Modal */}
       <AddressDetailsFormModal
         visible={showAddressForm}
         onClose={() => setShowAddressForm(false)}
@@ -879,10 +1029,48 @@ const CartScreen = () => {
           setShowAddressForm(false);
           setShowLocationPicker(true);
         }}
-        onSave={handleSaveAddress}
         initialLocation={pickedLocation}
+        onSave={handleSaveAddress}
         loading={isSavingAddress}
       />
+
+      {/* Checkout Button */}
+      {cartItems.length > 0 && (
+        <View className="absolute bottom-0 w-full bg-white border-t border-gray-100 px-4 pt-4 pb-8 shadow-2xl">
+          <View className="flex-row items-center justify-between mb-4">
+            <View className="flex-row items-center">
+              <View className="bg-blue-50 p-2 rounded-lg">
+                <Feather name="user" size={16} color="#3B82F6" />
+              </View>
+              <Text className="ml-2 text-xs font-bold text-gray-600">Ordering for <Text className="text-[#FF6B00]">{currentUser?.user_metadata?.full_name || "Customer"}</Text></Text>
+            </View>
+            <TouchableOpacity>
+              <Text className="text-[#FF6B00] font-black text-xs">CHANGE</Text>
+            </TouchableOpacity>
+          </View>
+
+          <TouchableOpacity
+            className={`h-16 rounded-2xl flex-row items-center justify-between px-6 shadow-xl active:scale-95 ${(!selectedAddress && !pincode) || allItemsUnavailable || isPlacingOrder ? 'bg-gray-400' : 'bg-[#FF6B00]'}`}
+            disabled={(!selectedAddress && !pincode) || allItemsUnavailable || isPlacingOrder}
+            onPress={handlePlaceOrder}
+          >
+            <View>
+              <Text className="text-white font-black text-lg">₹{totalToPay.toFixed(0)}</Text>
+              <Text className="text-white/80 text-[10px] uppercase font-bold tracking-widest">Grand Total</Text>
+            </View>
+            <View className="flex-row items-center">
+              {isPlacingOrder ? (
+                <ActivityIndicator color="white" size="small" className="mr-2" />
+              ) : null}
+              <Text className="text-white font-black text-base mr-2">
+                {(!selectedAddress && !pincode) ? "SELECT LOCATION" : allItemsUnavailable ? "UNAVAILABLE" : isPlacingOrder ? "PLACING ORDER..." : "PLACE ORDER"}
+              </Text>
+              <Feather name="arrow-right" size={20} color="white" />
+            </View>
+          </TouchableOpacity>
+        </View>
+      )}
+
     </SafeAreaView>
   );
 };
