@@ -1,14 +1,15 @@
 import { FontAwesome5, Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import React, { useEffect, useRef, useState } from "react";
+import { useRouter } from "expo-router";
 import {
-    Animated,
-    Dimensions,
-    Modal,
-    ScrollView,
-    Text,
-    TouchableOpacity,
-    View,
+  Animated,
+  Dimensions,
+  Modal,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
@@ -36,9 +37,17 @@ interface ProductCardProps {
   };
   onAdd?: (variant?: any) => void;
   onPress?: () => void;
+  gridStyle?: boolean;
 }
 
-const ProductCard = ({ item, onAdd, onPress }: ProductCardProps) => {
+const ProductCard = ({ item, onAdd, onPress, gridStyle }: ProductCardProps) => {
+  const router = useRouter();
+
+  const handlePress = () => {
+    if (onPress) onPress();
+    else router.push(`/product/${item.id}` as any);
+  };
+
   const [quantity, setQuantity] = useState(0);
   const [selectedVariant, setSelectedVariant] = useState<any>(null);
   const [showVariants, setShowVariants] = useState(false);
@@ -87,8 +96,8 @@ const ProductCard = ({ item, onAdd, onPress }: ProductCardProps) => {
       price: target?.price || target?.variant_price || item.price,
       oldPrice: target?.old_price || target?.variant_old_price || item.oldPrice,
       image: item.image,
-      quantity: 1,
       store: item.store,
+      quantity: 1,
       brand: item.brand,
     };
 
@@ -132,8 +141,8 @@ const ProductCard = ({ item, onAdd, onPress }: ProductCardProps) => {
     <>
       <TouchableOpacity
         activeOpacity={0.9}
-        onPress={onPress}
-        className="w-40 mr-4 bg-white rounded-xl border border-gray-100 overflow-hidden relative shadow-sm"
+        onPress={handlePress}
+        className={`${gridStyle ? "w-full" : "w-40 mr-4"} bg-white rounded-xl border border-gray-100 overflow-hidden relative shadow-sm`}
       >
         {/* Image Container */}
         <View className="h-32 bg-gray-50 items-center justify-center p-2 relative">
@@ -171,13 +180,6 @@ const ProductCard = ({ item, onAdd, onPress }: ProductCardProps) => {
                 <View className="bg-blue-50 border border-blue-100 px-1.5 py-0.5 rounded">
                   <Text className="text-[8px] font-medium text-blue-700">
                     {item.brand}
-                  </Text>
-                </View>
-              )}
-              {!!item.store && (
-                <View className="bg-purple-50 border border-purple-100 px-1.5 py-0.5 rounded">
-                  <Text className="text-[8px] font-medium text-purple-700">
-                    {item.store}
                   </Text>
                 </View>
               )}

@@ -21,7 +21,6 @@ import AddressListModal from "./AddressListModal";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { API_BASE_URL } from "../constants/Config";
 
-
 const QUICK_ACCESS = [
   {
     id: "1",
@@ -56,7 +55,13 @@ const QUICK_ACCESS = [
 const Header = () => {
   const router = useRouter();
   const { getCartTotal } = useCart();
-  const { location, pincode, selectedAddress, fetchAddresses, setSelectedAddress } = useLocation();
+  const {
+    location,
+    pincode,
+    selectedAddress,
+    fetchAddresses,
+    setSelectedAddress,
+  } = useLocation();
   const { currentUser } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -106,7 +111,7 @@ const Header = () => {
   const handleSaveAddress = async (addressData: any) => {
     setIsSavingAddress(true);
     try {
-      const token = await AsyncStorage.getItem('auth_token');
+      const token = await AsyncStorage.getItem("auth_token");
       if (!token) {
         Alert.alert("Login Required", "Please login to save your address.");
         router.push("/login");
@@ -114,12 +119,12 @@ const Header = () => {
       }
 
       const response = await fetch(`${API_BASE_URL}/user/addresses`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(addressData)
+        body: JSON.stringify(addressData),
       });
 
       const result = await response.json();
@@ -143,7 +148,6 @@ const Header = () => {
       } else {
         Alert.alert("Error", result.message || "Failed to save address");
       }
-
     } catch (error) {
       console.error("Save address error:", error);
       Alert.alert("Error", "Something went wrong while saving address");
@@ -152,18 +156,56 @@ const Header = () => {
     }
   };
 
-
   // Determine display string for location
   const displayLocation = selectedAddress
-    ? `${selectedAddress.address_line_1 || selectedAddress.street_address || ''}, ${selectedAddress.city}`
-    : (location ? location : "Select Location");
+    ? `${selectedAddress.address_line_1 || selectedAddress.street_address || ""}, ${selectedAddress.city}`
+    : location
+      ? location
+      : "Select Location";
 
   return (
     <SafeAreaView edges={["top"]} className="bg-white">
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
       <View className="bg-white pb-4 shadow-sm border-b border-gray-100 rounded-b-[24px]">
-        {/* Top Row: Brand & Location + Actions */}
-        <View className="flex-row items-center justify-between px-5 pt-3 pb-4">
+        {/* Quick Tabs - Tab View */}
+        <View className="flex-row items-center justify-between px-4 pt-3 pb-2 w-full">
+          {QUICK_ACCESS.map((item) => (
+            <TouchableOpacity
+              key={item.id}
+              className={`flex-1 mx-1 flex-col items-center justify-center py-2.5 rounded-[14px] border ${
+                item.active
+                  ? "bg-orange-50 border-orange-300"
+                  : "bg-white border-gray-200"
+              } shadow-sm`}
+            >
+              <Ionicons
+                name={
+                  item.title === "QWIK"
+                    ? "flash"
+                    : item.title === "Eato"
+                      ? "restaurant"
+                      : item.title === "Star"
+                        ? "star"
+                        : "grid"
+                }
+                size={22}
+                color={item.active ? "#EA580C" : item.color}
+                style={{ marginBottom: 4 }}
+              />
+              <Text
+                className={`text-[11px] font-black ${
+                  item.active ? "text-orange-700" : "text-gray-700"
+                }`}
+                numberOfLines={1}
+              >
+                {item.title}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* Middle Row: Brand & Location + Actions */}
+        <View className="flex-row items-center justify-between px-5 pt-2 pb-3">
           {/* Left: Brand & Location */}
           <TouchableOpacity
             className="flex-1 mr-4"
@@ -207,7 +249,9 @@ const Header = () => {
                 </View>
                 {cartTotal > 0 && (
                   <View className="absolute -top-1 -right-1 bg-orange-600 w-4 h-4 rounded-full items-center justify-center border-[1.5px] border-white">
-                    <Text className="text-[8px] font-bold text-white">{cartTotal}</Text>
+                    <Text className="text-[8px] font-bold text-white">
+                      {cartTotal}
+                    </Text>
                   </View>
                 )}
               </View>
@@ -232,7 +276,7 @@ const Header = () => {
         </View>
 
         {/* Search Bar - Floating effect */}
-        <View className="px-5 mb-5 relative z-10">
+        <View className="px-5 mb-2 relative z-10">
           <View className="flex-row items-center bg-white rounded-2xl shadow-[0_4px_20px_-10px_rgba(0,0,0,0.1)] border border-gray-100 h-14 px-4">
             <Ionicons name="search" size={22} color="#F97316" />
             <TextInput
@@ -248,45 +292,6 @@ const Header = () => {
             </TouchableOpacity>
           </View>
         </View>
-
-        {/* Quick Tabs - Modern Pills */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ paddingHorizontal: 20 }}
-          className="pb-1"
-        >
-          {QUICK_ACCESS.map((item) => (
-            <TouchableOpacity
-              key={item.id}
-              className={`mr-3 flex-row items-center px-4 py-2.5 rounded-2xl border ${item.active
-                ? "bg-gray-900 border-gray-900 shadow-md"
-                : "bg-white border-gray-200"
-                }`}
-            >
-              <Ionicons
-                name={
-                  item.title === "QWIK"
-                    ? "flash"
-                    : item.title === "Eato"
-                      ? "restaurant"
-                      : item.title === "Star"
-                        ? "star"
-                        : "grid"
-                }
-                size={16}
-                color={item.active ? "#FDBA74" : "#64748B"}
-                className="mr-2"
-              />
-              <Text
-                className={`text-xs font-bold ml-1.5 ${item.active ? "text-white" : "text-gray-600"
-                  }`}
-              >
-                {item.title}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
       </View>
 
       {/* Modals for Location Selection */}
@@ -314,7 +319,6 @@ const Header = () => {
         initialLocation={pickedLocation}
         loading={isSavingAddress}
       />
-
     </SafeAreaView>
   );
 };

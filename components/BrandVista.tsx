@@ -58,13 +58,13 @@ const BrandVista = () => {
           <TouchableOpacity
             key={brand.id}
             onPress={() => router.push(`/brands/${brand.id}` as any)} // Assuming brand page exists or generic product list
-            className="mr-3 w-[100px] h-[120px] bg-gray-50 rounded-xl border border-gray-100 items-center justify-center p-2"
+            className="mr-3 w-[138px] h-[165px] rounded-[1rem] items-center justify-center overflow-hidden"
           >
             {brand.image ? (
               <Image
                 source={{ uri: brand.image }}
                 className="w-full h-full"
-                resizeMode="contain"
+                resizeMode="cover"
               />
             ) : (
               <Text className="font-bold text-gray-400 text-center">

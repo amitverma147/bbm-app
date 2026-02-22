@@ -1,11 +1,11 @@
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    Image,
-    Text,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Image,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { API_BASE_URL } from "../constants/Config";
 
@@ -86,12 +86,12 @@ const ShopByCategory = ({ sectionName }: { sectionName?: string }) => {
                   className="w-[25%] p-2 items-center"
                   onPress={() => handleSubcategoryPress(category, sub)}
                 >
-                  <View className="w-16 h-16 bg-gray-50 rounded-full mb-2 overflow-hidden items-center justify-center">
+                  <View className="w-[86px] h-[86px] mb-2 items-center justify-center">
                     {sub.image_url ? (
                       <Image
                         source={{ uri: sub.image_url }}
                         className="w-full h-full"
-                        resizeMode="cover"
+                        resizeMode="contain"
                       />
                     ) : null}
                   </View>
