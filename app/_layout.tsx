@@ -1,10 +1,11 @@
-import { Stack, useRouter, useSegments } from "expo-router";
+import { Stack, useRouter, useSegments } from "expo-router"; // Hot Reload Fix
 import "../polyfills";
 
 import SplashScreen from "@/components/splash-screen";
 import { useFonts } from "expo-font";
 import { useEffect, useState } from "react";
 import "react-native-reanimated";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import "../global.css";
 
 import { AuthProvider, useAuth } from "../contexts/AuthContext";
@@ -48,6 +49,8 @@ export const unstable_settings = {
   // initialRouteName: "(tabs)", // potential conflict with auth redirect
 };
 
+import { WalletProvider } from "../contexts/WalletContext";
+
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
     "PlusJakartaSans-Regular": require("../assets/fonts/PlusJakartaSans-VariableFont_wght.ttf"),
@@ -72,25 +75,30 @@ export default function RootLayout() {
   }
 
   return (
-    <AuthProvider>
-      <LocationProvider>
-        <CartProvider>
-          <DeliveryChargeProvider>
-            <AuthGuard>
-              <Stack>
-                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-                <Stack.Screen name="index" options={{ headerShown: false }} />
-                <Stack.Screen name="login" options={{ headerShown: false }} />
-                <Stack.Screen name="signup" options={{ headerShown: false }} />
-                <Stack.Screen name="profile" options={{ headerShown: false }} />
-                <Stack.Screen name="wishlist" options={{ headerShown: false }} />
-                <Stack.Screen name="addresses" options={{ headerShown: false }} />
-                <Stack.Screen name="+not-found" />
-              </Stack>
-            </AuthGuard>
-          </DeliveryChargeProvider>
-        </CartProvider>
-      </LocationProvider>
-    </AuthProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <AuthProvider>
+        <LocationProvider>
+          <CartProvider>
+            <WalletProvider>
+              <DeliveryChargeProvider>
+                <AuthGuard>
+                  <Stack>
+                    <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                    <Stack.Screen name="index" options={{ headerShown: false }} />
+                    <Stack.Screen name="login" options={{ headerShown: false }} />
+                    <Stack.Screen name="signup" options={{ headerShown: false }} />
+                    <Stack.Screen name="profile" options={{ headerShown: false }} />
+                    <Stack.Screen name="wallet" options={{ headerShown: false }} />
+                    <Stack.Screen name="wishlist" options={{ headerShown: false }} />
+                    <Stack.Screen name="addresses" options={{ headerShown: false }} />
+                    <Stack.Screen name="+not-found" />
+                  </Stack>
+                </AuthGuard>
+              </DeliveryChargeProvider>
+            </WalletProvider>
+          </CartProvider>
+        </LocationProvider>
+      </AuthProvider>
+    </GestureHandlerRootView>
   );
 }

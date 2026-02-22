@@ -4,6 +4,7 @@ import {
   TouchableOpacity,
   Dimensions,
   FlatList,
+  Image,
 } from "react-native";
 import React, { useEffect, useState } from "react";
 import { useRouter } from "expo-router";
@@ -12,7 +13,6 @@ import {
   getMappedCategoryForSection,
 } from "../services/categoryService";
 import { LinearGradient } from "expo-linear-gradient";
-import { Image } from "expo-image";
 import { API_BASE_URL } from "../constants/Config";
 
 const { width } = Dimensions.get("window");
@@ -144,12 +144,12 @@ const DualCategorySection = ({
             contentContainerStyle={{ paddingHorizontal: 0 }}
             renderItem={({ item }) => {
               // Construct Image URL safely
-              const imageUrl = item.image || item.image_url;
+              const imageUrl = item.image_url || item.image || item.icon;
               const baseUrl = API_BASE_URL.replace("/api", "");
               const fullImageUrl = imageUrl
                 ? imageUrl.startsWith("http")
                   ? imageUrl
-                  : `${baseUrl}${imageUrl}`
+                  : `${baseUrl}${imageUrl.startsWith("/") ? "" : "/"}${imageUrl}`
                 : "https://via.placeholder.com/80";
 
               return (
@@ -160,7 +160,7 @@ const DualCategorySection = ({
                   <Image
                     source={{ uri: fullImageUrl }}
                     className="w-20 h-20 rounded-lg mb-2"
-                    contentFit="contain"
+                    resizeMode="contain"
                   />
                   <Text
                     numberOfLines={2}

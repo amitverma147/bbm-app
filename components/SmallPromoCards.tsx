@@ -23,12 +23,19 @@ const SmallPromoCards = () => {
                 // Adapting to component expectation of 'image_url' and 'link'
                 const formatted = data.data
                     .filter((c: any) => c.status === 'active' || c.is_active || c.active)
-                    .map((c: any) => ({
-                        id: c.id,
-                        image_url: c.image_url || c.image,
-                        link: c.link || "/",
-                        is_active: true
-                    }));
+                    .map((c: any) => {
+                        let finalUri = c.image_url || c.image;
+                        if (finalUri && !finalUri.startsWith("http")) {
+                            const baseUrl = API_BASE_URL.replace("/api", "");
+                            finalUri = `${baseUrl}${finalUri.startsWith("/") ? "" : "/"}${finalUri}`;
+                        }
+                        return {
+                            id: c.id,
+                            image_url: finalUri,
+                            link: c.link || "/",
+                            is_active: true
+                        };
+                    });
                 setCards(formatted);
             }
         } catch (error) {

@@ -1,5 +1,4 @@
 import { FontAwesome5, Ionicons, MaterialIcons } from "@expo/vector-icons";
-import { Image } from "expo-image";
 import React, { useEffect, useRef, useState } from "react";
 import { useRouter } from "expo-router";
 import {
@@ -10,6 +9,7 @@ import {
   Text,
   TouchableOpacity,
   View,
+  Image,
 } from "react-native";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
@@ -31,6 +31,8 @@ interface ProductCardProps {
       available_stock: number;
       low_stock: boolean;
     };
+    inStock?: boolean;
+    stock?: number;
     variants?: any[];
     rating?: number;
     reviews?: number;
@@ -137,6 +139,10 @@ const ProductCard = ({ item, onAdd, onPress, gridStyle }: ProductCardProps) => {
 
   const hasVariants = item.variants && item.variants.length > 0;
 
+  const isOutOfStock = selectedVariant
+    ? (selectedVariant.inStock === false || (selectedVariant.availableStock ?? 1) <= 0 || (selectedVariant.stock ?? 1) <= 0)
+    : (item.stockInfo?.in_stock === false || (item.stockInfo?.available_stock ?? 1) <= 0 || item.inStock === false || (item.stock ?? 1) <= 0);
+
   return (
     <>
       <TouchableOpacity
@@ -162,10 +168,7 @@ const ProductCard = ({ item, onAdd, onPress, gridStyle }: ProductCardProps) => {
             <Image
               source={{ uri: displayImage }}
               style={{ width: "100%", height: "100%" }}
-              contentFit="contain"
-              placeholder={blurhash}
-              transition={500}
-              cachePolicy="memory-disk"
+              resizeMode="contain"
             />
           ) : (
             <FontAwesome5 name="image" size={40} color="#ddd" />
@@ -245,6 +248,12 @@ const ProductCard = ({ item, onAdd, onPress, gridStyle }: ProductCardProps) => {
                 >
                   <Text className="text-white font-bold text-lg">+</Text>
                 </TouchableOpacity>
+              </View>
+            ) : isOutOfStock ? (
+              <View className="bg-gray-100 border border-gray-300 px-2 py-1.5 rounded-lg shadow-sm">
+                <Text className="text-gray-400 text-[10px] font-bold uppercase">
+                  No Stock
+                </Text>
               </View>
             ) : (
               <TouchableOpacity
@@ -341,14 +350,22 @@ const ProductCard = ({ item, onAdd, onPress, gridStyle }: ProductCardProps) => {
                     </View>
 
                     {/* Add Button for specific variant */}
-                    <TouchableOpacity
-                      onPress={() => handleAdd(variant)}
-                      className="bg-white border border-[#FD5B00] px-4 py-2 rounded-lg"
-                    >
-                      <Text className="text-[#FD5B00] font-bold text-xs uppercase">
-                        Add
-                      </Text>
-                    </TouchableOpacity>
+                    {(variant.inStock === false || variant.availableStock === 0 || variant.stock === 0) ? (
+                      <View className="bg-gray-100 border border-gray-300 px-2 py-2 rounded-lg">
+                        <Text className="text-gray-400 font-bold text-xs uppercase">
+                          No Stock
+                        </Text>
+                      </View>
+                    ) : (
+                      <TouchableOpacity
+                        onPress={() => handleAdd(variant)}
+                        className="bg-white border border-[#FD5B00] px-4 py-2 rounded-lg"
+                      >
+                        <Text className="text-[#FD5B00] font-bold text-xs uppercase">
+                          Add
+                        </Text>
+                      </TouchableOpacity>
+                    )}
                   </TouchableOpacity>
                 );
               })}

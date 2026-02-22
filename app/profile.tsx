@@ -4,6 +4,8 @@ import React, { useEffect } from "react";
 import { ScrollView, Text, TouchableOpacity, View, Alert, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../contexts/AuthContext";
+import { useWallet } from "../contexts/WalletContext";
+
 
 const MenuItem = ({ icon, title, subtitle, onPress }: any) => (
   <TouchableOpacity
@@ -28,6 +30,8 @@ const SectionHeader = ({ title }: { title: string }) => (
 const Profile = () => {
   const router = useRouter();
   const { userProfile, logout, refreshUserProfile, loading } = useAuth();
+  const { balance, isFrozen } = useWallet();
+
 
   useEffect(() => {
     refreshUserProfile();
@@ -161,7 +165,10 @@ const Profile = () => {
           {/* Wallet Banner - Modern Gradient Look */}
           <View className="mx-4 mb-8">
             <View className="bg-gray-900 rounded-3xl overflow-hidden shadow-lg shadow-gray-300">
-              <TouchableOpacity className="flex-row justify-between items-center p-5 border-b border-gray-800">
+              <TouchableOpacity
+                onPress={() => router.push("/wallet")}
+                className="flex-row justify-between items-center p-5 border-b border-gray-800"
+              >
                 <View className="flex-row items-center">
                   <View className="w-10 h-10 rounded-xl bg-orange-500 items-center justify-center mr-4 shadow-lg shadow-orange-900/50">
                     <Ionicons name="wallet" size={20} color="white" />
@@ -182,9 +189,16 @@ const Profile = () => {
               <View className="flex-row justify-between items-center px-5 py-4 bg-gray-800">
                 <Text className="text-gray-400 font-medium">
                   Balance:{" "}
-                  <Text className="font-bold text-white text-lg">₹{userProfile?.wallet_balance || 0}</Text>
+                  <Text className="font-bold text-white text-lg">
+                    ₹{balance.toFixed(2)}
+                  </Text>
                 </Text>
-                <TouchableOpacity className="bg-white px-5 py-2 rounded-xl shadow-sm active:bg-gray-100">
+                <TouchableOpacity
+                  onPress={() => router.push("/wallet")}
+                  disabled={isFrozen}
+                  className={`bg-white px-5 py-2 rounded-xl shadow-sm active:bg-gray-100 ${isFrozen ? "opacity-50" : ""
+                    }`}
+                >
                   <Text className="text-xs font-black text-gray-900 uppercase tracking-wider">
                     Add Money
                   </Text>

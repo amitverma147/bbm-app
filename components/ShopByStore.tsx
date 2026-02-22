@@ -71,13 +71,24 @@ const ShopByStore = ({ sectionName, sectionDescription }: ShopByStoreProps) => {
             onPress={() => router.push(`/shopbystore/${store.id}` as any)}
           >
             <View className="w-[77px] h-[77px] mb-2 items-center justify-center">
-              {store.image_url ? (
-                <Image
-                  source={{ uri: store.image_url }}
-                  className="w-full h-full"
-                  resizeMode="contain"
-                />
-              ) : null}
+              {(() => {
+                const imageUrl = store.image_url || store.image || store.icon;
+                let finalUri = null;
+                if (imageUrl) {
+                  if (imageUrl.startsWith("http")) finalUri = imageUrl;
+                  else {
+                    const baseUrl = API_BASE_URL.replace("/api", "");
+                    finalUri = `${baseUrl}${imageUrl.startsWith("/") ? "" : "/"}${imageUrl}`;
+                  }
+                }
+                return finalUri ? (
+                  <Image
+                    source={{ uri: finalUri }}
+                    className="w-full h-full"
+                    resizeMode="contain"
+                  />
+                ) : null;
+              })()}
             </View>
             <Text
               className="text-xs font-semibold text-center text-gray-800"

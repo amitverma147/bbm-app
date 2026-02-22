@@ -26,6 +26,63 @@ export interface WalletOrderPayload {
     items: any[];
 }
 
+export const getWalletTransactions = async (token: string, page = 1, limit = 20) => {
+    try {
+        const queryParams = new URLSearchParams({
+            page: page.toString(),
+            limit: limit.toString(),
+        });
+        const response = await fetch(`${API_BASE_URL}/wallet/transactions?${queryParams}`, {
+            method: "GET",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${token}`
+            }
+        });
+        const data = await response.json();
+        return data;
+    } catch (error) {
+        console.error("Error fetching transactions:", error);
+        throw error;
+    }
+};
+
+export const createWalletTopupOrder = async (amount: number, token: string) => {
+    try {
+        const response = await fetch(`${API_BASE_URL}/wallet/topup`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${token}`
+            },
+            body: JSON.stringify({ amount })
+        });
+        const data = await response.json();
+        return data;
+    } catch (error) {
+        console.error("Error creating topup order:", error);
+        throw error;
+    }
+};
+
+export const verifyWalletTopup = async (paymentData: any, token: string) => {
+    try {
+        const response = await fetch(`${API_BASE_URL}/wallet/topup/verify`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${token}`
+            },
+            body: JSON.stringify(paymentData)
+        });
+        const data = await response.json();
+        return data;
+    } catch (error) {
+        console.error("Error verifying topup:", error);
+        throw error;
+    }
+};
+
 export const getWalletDetails = async (token: string) => {
     try {
         const response = await fetch(`${API_BASE_URL}/wallet`, {
@@ -41,7 +98,7 @@ export const getWalletDetails = async (token: string) => {
         console.error("Error fetching wallet details:", error);
         throw error;
     }
-}
+};
 
 export const createWalletOrder = async (orderData: WalletOrderPayload, token: string) => {
     try {

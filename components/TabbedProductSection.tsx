@@ -1,11 +1,11 @@
-import { Image } from "expo-image";
 import React, { useEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    ScrollView,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
+  Image,
 } from "react-native";
 import { API_BASE_URL } from "../constants/Config";
 import ProductCard from "./ProductCard";
@@ -108,6 +108,11 @@ const TabbedProductSection = ({
       >
         {subcategories.map((sub) => {
           const isActive = activeTab === sub.id;
+          let finalUri = sub.image_url || sub.image || sub.icon;
+          if (finalUri && !finalUri.startsWith("http")) {
+            const baseUrl = API_BASE_URL.replace("/api", "");
+            finalUri = `${baseUrl}${finalUri.startsWith("/") ? "" : "/"}${finalUri}`;
+          }
           return (
             <TouchableOpacity
               key={sub.id}
@@ -117,11 +122,11 @@ const TabbedProductSection = ({
               <View
                 className={`w-10 h-10 rounded-full items-center justify-center mb-1 overflow-hidden ${isActive ? "bg-green-100" : "bg-gray-100"}`}
               >
-                {sub.image_url ? (
+                {finalUri ? (
                   <Image
-                    source={{ uri: sub.image_url }}
+                    source={{ uri: finalUri }}
                     style={{ width: "100%", height: "100%" }}
-                    contentFit="cover"
+                    resizeMode="cover"
                   />
                 ) : (
                   <Text className="text-xl">📦</Text>

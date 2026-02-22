@@ -87,13 +87,24 @@ const ShopByCategory = ({ sectionName }: { sectionName?: string }) => {
                   onPress={() => handleSubcategoryPress(category, sub)}
                 >
                   <View className="w-[86px] h-[86px] mb-2 items-center justify-center">
-                    {sub.image_url ? (
-                      <Image
-                        source={{ uri: sub.image_url }}
-                        className="w-full h-full"
-                        resizeMode="contain"
-                      />
-                    ) : null}
+                    {(() => {
+                      const imageUrl = sub.image_url || sub.image || sub.icon;
+                      let finalUri = null;
+                      if (imageUrl) {
+                        if (imageUrl.startsWith("http")) finalUri = imageUrl;
+                        else {
+                          const baseUrl = API_BASE_URL.replace("/api", "");
+                          finalUri = `${baseUrl}${imageUrl.startsWith("/") ? "" : "/"}${imageUrl}`;
+                        }
+                      }
+                      return finalUri ? (
+                        <Image
+                          source={{ uri: finalUri }}
+                          className="w-full h-full"
+                          resizeMode="contain"
+                        />
+                      ) : null;
+                    })()}
                   </View>
                   <Text
                     className="text-[10px] text-center text-gray-700 font-medium"
