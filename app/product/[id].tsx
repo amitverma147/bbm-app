@@ -12,6 +12,7 @@ import {
   Text,
   TouchableOpacity,
   View,
+  Alert,
 } from "react-native";
 import YoutubePlayer from "react-native-youtube-iframe";
 
@@ -133,14 +134,28 @@ export default function SingleProductPage() {
         ? selectedVariant.discount_percentage
         : product?.discount || 0;
 
-  const stockInfo = selectedVariant?.stock_info ||
-    product?.stock_info || {
-      available_stock: 0,
-      in_stock: false,
-      low_stock: false,
-    };
-  const inStock = stockInfo.in_stock || product?.stock > 0;
-  const availableStock = stockInfo.available_stock || product?.stock || 0;
+  // Helper function from Web (UnifiedProductCard.jsx & UniqueVariantCard.jsx)
+  const checkIsVariantOutOfStock = (variant: any) => {
+    if (!variant) return false;
+    if (variant.inStock !== undefined && variant.inStock === false) return true;
+    if (variant.availableStock !== undefined && variant.availableStock <= 0) return true;
+    // Legacy fallback
+    if (variant.stockInfo || variant.stock_info) {
+      const isStockFalse = (variant.stockInfo?.in_stock ?? variant.stock_info?.in_stock) === false;
+      const isAvailableZero = (variant.stockInfo?.available_stock ?? variant.stock_info?.available_stock ?? 1) <= 0;
+      if (isStockFalse || isAvailableZero) return true;
+    }
+    if (variant.variant_stock !== undefined && variant.variant_stock <= 0) return true;
+    if (variant.stock !== undefined && variant.stock <= 0) return true;
+    return false;
+  };
+
+  const isOutOfStock = checkIsVariantOutOfStock(selectedVariant || product);
+
+  const stockInfo = selectedVariant?.stock_info || product?.stock_info || { available_stock: 0 };
+  const availableStock = stockInfo.available_stock !== undefined ? stockInfo.available_stock : (product?.stock || 0);
+
+  const inStock = !isOutOfStock;
 
   const mediaItems = useMemo(() => {
     const items: any[] = [];
@@ -180,6 +195,12 @@ export default function SingleProductPage() {
     if (!variantToUse && variants.length > 0) {
       variantToUse = variants.find((v: any) => v.is_default) || variants[0];
     }
+
+    if (quantityInCart >= availableStock) {
+      Alert.alert("Max Stock", `You cannot add more than ${availableStock} of this item.`);
+      return;
+    }
+
     const targetItem = {
       id: cartItemKey || product.id,
       productId: product.id,
@@ -199,6 +220,14 @@ export default function SingleProductPage() {
       isVariant: !!variantToUse,
     };
     addToCart(targetItem);
+  };
+
+  const handleIncrement = () => {
+    if (quantityInCart < availableStock) {
+      handleAddToCart();
+    } else {
+      Alert.alert("Max Stock", `You cannot add more than ${availableStock} of this item.`);
+    }
   };
 
   const handleRemoveFromCart = () => {
@@ -407,18 +436,16 @@ export default function SingleProductPage() {
                   <TouchableOpacity
                     key={v.id}
                     onPress={() => setSelectedVariant(v)}
-                    className={`min-w-[80px] h-[64px] rounded-xl items-center justify-center border-2 ${
-                      selectedVariant?.id === v.id
-                        ? "border-[#22c55e] bg-green-50/50"
-                        : "border-[#e5e7eb] bg-white"
-                    }`}
+                    className={`min-w-[80px] h-[64px] rounded-xl items-center justify-center border-2 ${selectedVariant?.id === v.id
+                      ? "border-[#22c55e] bg-green-50/50"
+                      : "border-[#e5e7eb] bg-white"
+                      }`}
                   >
                     <Text
-                      className={`font-semibold text-[13px] ${
-                        selectedVariant?.id === v.id
-                          ? "text-[#15803d]"
-                          : "text-gray-700"
-                      }`}
+                      className={`font-semibold text-[13px] ${selectedVariant?.id === v.id
+                        ? "text-[#15803d]"
+                        : "text-gray-700"
+                        }`}
                     >
                       {v.title}
                     </Text>
@@ -434,17 +461,17 @@ export default function SingleProductPage() {
           {/* Store Badge */}
           {(product.product_recommended_store?.[0]?.recommended_store ||
             product.store) && (
-            <TouchableOpacity className="bg-[#eff6ff] self-start px-3 py-2 rounded-xl flex-row items-center gap-1.5 mb-6">
-              <Text className="text-[11px] font-bold text-gray-500 tracking-wide uppercase">
-                STORE:
-              </Text>
-              <Text className="text-[13px] font-bold text-gray-900 ml-1">
-                {product.product_recommended_store?.[0]?.recommended_store
-                  ?.name || product.store?.name}
-              </Text>
-              <Ionicons name="chevron-forward" size={12} color="#111827" />
-            </TouchableOpacity>
-          )}
+              <TouchableOpacity className="bg-[#eff6ff] self-start px-3 py-2 rounded-xl flex-row items-center gap-1.5 mb-6">
+                <Text className="text-[11px] font-bold text-gray-500 tracking-wide uppercase">
+                  STORE:
+                </Text>
+                <Text className="text-[13px] font-bold text-gray-900 ml-1">
+                  {product.product_recommended_store?.[0]?.recommended_store
+                    ?.name || product.store?.name}
+                </Text>
+                <Ionicons name="chevron-forward" size={12} color="#111827" />
+              </TouchableOpacity>
+            )}
 
           <View className="border-t border-b border-gray-100 py-4 mb-6">
             <Text className="text-[14px] text-gray-500 font-medium">

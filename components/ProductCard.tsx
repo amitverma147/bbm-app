@@ -139,9 +139,41 @@ const ProductCard = ({ item, onAdd, onPress, gridStyle }: ProductCardProps) => {
 
   const hasVariants = item.variants && item.variants.length > 0;
 
-  const isOutOfStock = selectedVariant
-    ? (selectedVariant.inStock === false || (selectedVariant.availableStock ?? 1) <= 0 || (selectedVariant.stock ?? 1) <= 0)
-    : (item.stockInfo?.in_stock === false || (item.stockInfo?.available_stock ?? 1) <= 0 || item.inStock === false || (item.stock ?? 1) <= 0);
+  // Enhanced check merging variant and parent item stock logic
+  const checkIsOutOfStock = (variant: any, productObj: any) => {
+    // 1. Check variant explicitly first
+    if (variant) {
+      if (variant.inStock !== undefined && variant.inStock === false) return true;
+      if (variant.availableStock !== undefined && variant.availableStock <= 0) return true;
+      if (variant.stockInfo || variant.stock_info) {
+        const isStockFalse = (variant.stockInfo?.in_stock ?? variant.stock_info?.in_stock) === false;
+        const isAvailableZero = (variant.stockInfo?.available_stock ?? variant.stock_info?.available_stock ?? 1) <= 0;
+        if (isStockFalse || isAvailableZero) return true;
+      }
+      if (variant.variant_stock !== undefined && variant.variant_stock <= 0) return true;
+      if (variant.stock !== undefined && variant.stock <= 0) return true;
+
+      // If variant explicitly has positive stock, it's IN stock.
+      if (variant.inStock === true || variant.availableStock > 0 || variant.stock > 0 || variant.variant_stock > 0) return false;
+    }
+
+    // 2. Fallback to product if variant has NO stock info, or if variant is null
+    if (productObj) {
+      if (productObj.inStock !== undefined && productObj.inStock === false) return true;
+      if (productObj.availableStock !== undefined && productObj.availableStock <= 0) return true;
+      if ((productObj as any).stockQuantity !== undefined && (productObj as any).stockQuantity <= 0) return true;
+      if (productObj.stockInfo || productObj.stock_info) {
+        const isStockFalse = (productObj.stockInfo?.in_stock ?? productObj.stock_info?.in_stock) === false;
+        const isAvailableZero = (productObj.stockInfo?.available_stock ?? productObj.stock_info?.available_stock ?? 1) <= 0;
+        if (isStockFalse || isAvailableZero) return true;
+      }
+      if (productObj.stock !== undefined && productObj.stock <= 0) return true;
+    }
+
+    return false;
+  };
+
+  const isOutOfStock = checkIsOutOfStock(selectedVariant, item);
 
   return (
     <>
@@ -350,7 +382,7 @@ const ProductCard = ({ item, onAdd, onPress, gridStyle }: ProductCardProps) => {
                     </View>
 
                     {/* Add Button for specific variant */}
-                    {(variant.inStock === false || variant.availableStock === 0 || variant.stock === 0) ? (
+                    {checkIsOutOfStock(variant, item) ? (
                       <View className="bg-gray-100 border border-gray-300 px-2 py-2 rounded-lg">
                         <Text className="text-gray-400 font-bold text-xs uppercase">
                           No Stock

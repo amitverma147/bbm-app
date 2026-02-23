@@ -13,6 +13,8 @@ import { CartProvider } from "../contexts/CartContext";
 import { DeliveryChargeProvider } from "../contexts/DeliveryChargeContext";
 import { LocationProvider } from "../contexts/LocationContext";
 
+import { WalletProvider } from "../contexts/WalletContext";
+
 // Separate component for Auth Guard to use useAuth hook
 function AuthGuard({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, loading } = useAuth();
@@ -48,8 +50,6 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
 export const unstable_settings = {
   // initialRouteName: "(tabs)", // potential conflict with auth redirect
 };
-
-import { WalletProvider } from "../contexts/WalletContext";
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({

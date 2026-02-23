@@ -619,8 +619,15 @@ const CartScreen = () => {
               <Text className="font-bold text-white px-2 text-sm">{item.quantity}</Text>
 
               <TouchableOpacity
-                onPress={() => updateQuantity(item.id, item.quantity + 1)}
-                className="p-1 px-2"
+                onPress={() => {
+                  const maxStock = availability?.available ? availability?.available_stock || 999 : 999;
+                  if (item.quantity < maxStock) {
+                    updateQuantity(item.id, item.quantity + 1);
+                  } else {
+                    Alert.alert("Max Stock", `You cannot add more than ${maxStock} of this item.`);
+                  }
+                }}
+                className={`p-1 px-2 ${item.quantity >= (availability?.available ? availability?.available_stock || 999 : 999) ? "opacity-50" : ""}`}
               >
                 <Feather name="plus" size={16} color="white" />
               </TouchableOpacity>
