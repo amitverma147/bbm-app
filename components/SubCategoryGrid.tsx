@@ -1,45 +1,74 @@
-import { View, Text, ScrollView, TouchableOpacity, Image } from 'react-native'
+import { View, Text, ScrollView, TouchableOpacity, Image, ActivityIndicator } from 'react-native'
 import React from 'react'
+import { Feather } from '@expo/vector-icons'
+import { useRouter } from 'expo-router'
 
 interface SubCategoryGridProps {
     category: any;
-    subcategories?: any[]; // Allow passing subcategories if available
-}
-
-// Dummy subcategories generator if none provided
-const generateDummySubcats = (catName: string) => {
-    return Array(6).fill(null).map((_, i) => ({
-        id: `sub-${i}`,
-        name: `${catName} ${i + 1}`,
-        image: 'https://via.placeholder.com/100'
-    }));
 }
 
 const SubCategoryGrid = ({ category }: SubCategoryGridProps) => {
-    if (!category) return <View className="flex-1 items-center justify-center"><Text>Select a category</Text></View>;
+    const router = useRouter();
 
-    // Use passed subcategories or generate dummy ones for now
-    const data = category.subcategories || generateDummySubcats(category.name);
+    if (!category) return (
+        <View className="flex-1 items-center justify-center bg-gray-50">
+            <ActivityIndicator color="#EA580C" />
+        </View>
+    );
+
+    // Backend hierarchy returns 'subcategories'
+    // Fallback logic for data extraction
+    const data = category.subcategories || category.groups || [];
 
     return (
-        <View className="flex-1 bg-white">
-            <View className="p-4 border-b border-gray-50">
-                <Text className="text-lg font-bold text-gray-800">{category.name}</Text>
-                <Text className="text-xs text-gray-500">{data.length} items</Text>
+        <View className="flex-1 bg-gray-50">
+            <View className="p-5 bg-white border-b border-gray-100 shadow-sm">
+                <Text className="text-xl font-extrabold text-gray-900 tracking-tight">{category.name}</Text>
+                <Text className="text-xs text-gray-500 font-medium mt-1">
+                    {data.length > 0 ? `Explore ${data.length} collections` : 'No subcategories found'}
+                </Text>
             </View>
 
-            <ScrollView className="flex-1 p-3">
-                <View className="flex-row flex-wrap justify-between">
-                    {data.map((item: any) => (
-                        <TouchableOpacity key={item.id} className="w-[48%] bg-white rounded-xl border border-gray-100 mb-3 p-3 items-center shadow-sm">
-                            <View className="w-16 h-16 bg-gray-50 rounded-lg mb-2 items-center justify-center">
-                                <Image source={{ uri: item.image }} className="w-full h-full rounded-lg" resizeMode="cover" />
-                            </View>
-                            <Text className="text-xs font-semibold text-center text-gray-800" numberOfLines={2}>{item.name}</Text>
-                        </TouchableOpacity>
-                    ))}
+            <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+                <View className="flex-row flex-wrap p-4 justify-between">
+                    {data.map((item: any) => {
+                        // Handle backend image properties
+                        const imageUrl = item.image_url || item.icon || item.image;
+
+                        return (
+                            <TouchableOpacity
+                                key={item.id}
+                                activeOpacity={0.8}
+                                onPress={() => router.push(`/category/${item.id}`)}
+                                className="w-[31%] bg-white rounded-2xl mb-4 p-2 items-center shadow-sm border border-gray-100"
+                            >
+                                <View className="w-full aspect-square bg-blue-50/50 rounded-xl mb-2 items-center justify-center overflow-hidden">
+                                    {imageUrl ? (
+                                        <Image
+                                            source={{ uri: imageUrl }}
+                                            className="w-full h-full"
+                                            resizeMode="contain"
+                                        />
+                                    ) : (
+                                        <Feather name="box" size={24} color="#FD5B00" />
+                                    )}
+                                </View>
+                                <Text className="text-[10px] font-bold text-center text-gray-900 h-8" numberOfLines={2}>
+                                    {item.name}
+                                </Text>
+                            </TouchableOpacity>
+                        );
+                    })}
                 </View>
-                <View className="h-20" />
+
+                {data.length === 0 && (
+                    <View className="flex-1 items-center justify-center pt-20">
+                        <Feather name="folder-minus" size={48} color="#D1D5DB" />
+                        <Text className="text-gray-400 mt-4 font-medium">Coming Soon</Text>
+                    </View>
+                )}
+
+                <View className="h-24" />
             </ScrollView>
         </View>
     )

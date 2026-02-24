@@ -14,6 +14,7 @@ import {
 } from "../services/categoryService";
 import { LinearGradient } from "expo-linear-gradient";
 import { API_BASE_URL } from "../constants/Config";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 const { width } = Dimensions.get("window");
 
@@ -40,7 +41,6 @@ const DualCategorySection = ({
   const fetchData = async () => {
     try {
       setLoading(true);
-      // 1. Fetch mappings
       const [leftMappingRes, rightMappingRes] = await Promise.all([
         getMappedCategoryForSection(sectionLeftKey),
         getMappedCategoryForSection(sectionRightKey),
@@ -54,11 +54,9 @@ const DualCategorySection = ({
         return;
       }
 
-      // 2. Fetch hierarchy
       const response = await getCategoriesHierarchy();
 
       if (response.success && response.categories) {
-        // 3. Resolve full category objects
         if (leftId) {
           const leftCat = response.categories.find((c: any) => c.id == leftId);
           if (leftCat) {
@@ -88,12 +86,12 @@ const DualCategorySection = ({
     return (
       <View className="px-4 mb-4">
         <View
-          style={{ width: width - 32, height: 200 }}
-          className="bg-gray-200 rounded-xl animate-pulse mb-4"
+          style={{ width: width - 32, height: 260 }}
+          className="bg-gray-200 rounded-3xl animate-pulse mb-4"
         />
         <View
-          style={{ width: width - 32, height: 200 }}
-          className="bg-gray-200 rounded-xl animate-pulse"
+          style={{ width: width - 32, height: 260 }}
+          className="bg-gray-200 rounded-3xl animate-pulse"
         />
       </View>
     );
@@ -105,7 +103,7 @@ const DualCategorySection = ({
     subcategories: any[],
     title: string,
     subtitle: string,
-    colors: readonly [string, string, ...string[]],
+    colors: readonly [string, string],
     themeColor: string,
   ) => {
     if (!category) return null;
@@ -115,35 +113,35 @@ const DualCategorySection = ({
         colors={colors}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={{ width: width - 32 }} // Full width with some margin
-        className="rounded-xl p-5 h-72 justify-center relative mx-4 mb-4"
+        style={{ width: width }}
+        className="p-5 h-[300px] justify-center relative mb-4 shadow-sm"
       >
         {/* Header */}
-        <View className="mb-4 px-2">
-          <View className="self-start px-3 py-1.5 rounded-full mb-2 bg-white/50 border border-white/20">
-            <Text style={{ color: themeColor }} className="text-xs font-bold">
+        <View className="mb-4 pr-10">
+          <View className="bg-white/20 self-start px-3 py-1.5 rounded-full mb-3 flex-row items-center border border-white/30 shadow-sm">
+            <Text className="text-[11px] font-black text-white uppercase tracking-wider mr-1">
               {category.name}
             </Text>
+            <MaterialCommunityIcons name="lightning-bolt" size={14} color="#fef08a" />
           </View>
-          <Text className="text-2xl font-black text-gray-800 leading-tight">
+          <Text className="text-[28px] font-black text-white leading-tight mb-1 drop-shadow-md">
             {title}
           </Text>
-          <Text className="text-sm font-bold text-gray-600 mt-1">
+          <Text className="text-sm font-bold text-white/90 tracking-wide drop-shadow-md">
             {subtitle}
           </Text>
         </View>
 
-        {/* Subcategories List */}
+        {/* Subcategories Horizontal List */}
         {subcategories.length > 0 ? (
           <FlatList
             data={subcategories}
             keyExtractor={(item) => item.id.toString()}
             horizontal
             showsHorizontalScrollIndicator={false}
-            className="flex-1 mt-2"
+            className="flex-1"
             contentContainerStyle={{ paddingHorizontal: 0 }}
             renderItem={({ item }) => {
-              // Construct Image URL safely
               const imageUrl = item.image_url || item.image || item.icon;
               const baseUrl = API_BASE_URL.replace("/api", "");
               const fullImageUrl = imageUrl
@@ -154,30 +152,33 @@ const DualCategorySection = ({
 
               return (
                 <TouchableOpacity
-                  onPress={() => router.push(`/categories?id=${category.id}`)}
-                  className="mr-4 items-center bg-white rounded-xl p-3 w-32 h-40 justify-between shadow-sm"
+                  onPress={() => router.push({ pathname: `/category/${item.id}` as any, params: { name: item.name } })}
+                  className="mr-3 items-center bg-white/95 rounded-2xl p-3 w-[120px] justify-between shadow-md"
+                  style={{ height: 145 }}
                 >
                   <Image
                     source={{ uri: fullImageUrl }}
-                    className="w-20 h-20 rounded-lg mb-2"
+                    className="w-[70px] h-[70px] rounded-xl mb-2"
                     resizeMode="contain"
                   />
                   <Text
                     numberOfLines={2}
-                    className="text-xs text-center font-bold text-gray-800"
+                    className="text-[11px] text-center font-black text-gray-800 leading-[13px] mb-1 px-1"
                   >
                     {item.name}
                   </Text>
-                  <Text className="text-[10px] text-green-600 font-bold">
-                    UP TO 60% OFF
-                  </Text>
+                  <View className="bg-green-100 px-1.5 py-0.5 rounded border border-green-200">
+                    <Text className="text-[9px] text-green-700 font-bold tracking-tight">
+                      UP TO 60% OFF
+                    </Text>
+                  </View>
                 </TouchableOpacity>
               );
             }}
           />
         ) : (
-          <View className="flex-1 justify-center items-center">
-            <Text className="text-sm text-gray-500">No deals available</Text>
+          <View className="flex-1 justify-center items-center bg-white/10 rounded-2xl border border-white/20">
+            <Text className="text-sm font-bold text-white/80">No deals available</Text>
           </View>
         )}
       </LinearGradient>
@@ -185,22 +186,22 @@ const DualCategorySection = ({
   };
 
   return (
-    <View className="mb-2">
+    <View className="mb-2 mt-4 bg-white w-full">
       {renderCard(
         leftCategory,
         leftSubcategories,
-        "Best Selling",
+        "Daily Fresh",
         "UP TO 60% OFF",
-        ["#E0F2FE", "#DBEAFE", "#EFF6FF"],
-        "#1e40af", // blue-800
+        ["#10b981", "#047857"], // Vibrant Greens
+        "#10b981",
       )}
       {renderCard(
         rightCategory,
         rightSubcategories,
         "Trending Now",
         "UP TO 90% OFF",
-        ["#FFE4C4", "#FFEBCD", "#F5DEB3"],
-        "#78350f", // amber-900
+        ["#f59e0b", "#d97706"], // Vibrant Oranges
+        "#f59e0b",
       )}
     </View>
   );

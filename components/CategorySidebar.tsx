@@ -19,10 +19,11 @@ const CategorySidebar = ({ categories, selectedCategory, onSelectCategory }: Cat
                         <TouchableOpacity
                             key={item.id}
                             onPress={() => onSelectCategory(item)}
-                            className={`items-center py-4 border-b border-gray-50 bg-gray-50/50 ${isSelected ? 'bg-white border-l-4 border-l-[#FD5B00]' : ''}`}
+                            activeOpacity={0.7}
+                            className={`items-center py-5 border-b border-gray-50 ${isSelected ? 'bg-white' : 'bg-gray-50/80'}`}
                         >
-                            <View className={`w-12 h-12 rounded-full items-center justify-center mb-1 ${isSelected ? 'bg-orange-50' : 'bg-gray-100'}`}>
-                                {/* Placeholder for icon/image */}
+                            {isSelected && <View className="absolute left-0 top-0 bottom-0 w-1.5 bg-orange-600 rounded-r-full" />}
+                            <View className={`w-14 h-14 rounded-2xl items-center justify-center mb-1.5 ${isSelected ? 'bg-orange-50 shadow-sm' : 'bg-white border border-gray-100'}`}>
                                 {(() => {
                                     const imageUrl = item.image_url || item.image || item.icon;
                                     let finalUri = null;
@@ -34,13 +35,13 @@ const CategorySidebar = ({ categories, selectedCategory, onSelectCategory }: Cat
                                         }
                                     }
                                     return finalUri ? (
-                                        <Image source={{ uri: finalUri }} className="w-8 h-8" resizeMode="contain" />
+                                        <Image source={{ uri: finalUri }} className="w-10 h-10" resizeMode="contain" />
                                     ) : (
-                                        <FontAwesome5 name="th-large" size={16} color={isSelected ? '#FD5B00' : 'gray'} />
+                                        <FontAwesome5 name="th-large" size={20} color={isSelected ? '#EA580C' : '#9CA3AF'} />
                                     );
                                 })()}
                             </View>
-                            <Text className={`text-[10px] text-center px-1 font-medium ${isSelected ? 'text-[#FD5B00]' : 'text-gray-500'}`}>
+                            <Text className={`text-[10px] text-center px-1 font-bold ${isSelected ? 'text-orange-600' : 'text-gray-500'}`} numberOfLines={2}>
                                 {item.name}
                             </Text>
                         </TouchableOpacity>

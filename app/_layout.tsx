@@ -1,5 +1,7 @@
 import { Stack, useRouter, useSegments } from "expo-router"; // Hot Reload Fix
 import "../polyfills";
+import FloatingCartBar from "../components/FloatingCartBar";
+import ActiveOrderBar from "../components/ActiveOrderBar";
 
 import SplashScreen from "@/components/splash-screen";
 import { useFonts } from "expo-font";
@@ -93,6 +95,8 @@ export default function RootLayout() {
                     <Stack.Screen name="addresses" options={{ headerShown: false }} />
                     <Stack.Screen name="+not-found" />
                   </Stack>
+                  <ActiveOrderBar />
+                  <FloatingCartBar offset={70} />
                 </AuthGuard>
               </DeliveryChargeProvider>
             </WalletProvider>

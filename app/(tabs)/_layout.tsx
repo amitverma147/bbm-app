@@ -64,7 +64,7 @@ export default function TabLayout() {
           ),
         }}
       />
-      <Tabs.Screen
+      {/* <Tabs.Screen
         name="menu"
         options={{
           title: "Menu",
@@ -72,7 +72,7 @@ export default function TabLayout() {
             <Feather name="menu" size={24} color={color} />
           ),
         }}
-      />
+      /> */}
     </Tabs>
   );
 }

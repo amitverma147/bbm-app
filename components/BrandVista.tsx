@@ -57,7 +57,10 @@ const BrandVista = () => {
         {brands.map((brand) => (
           <TouchableOpacity
             key={brand.id}
-            onPress={() => router.push(`/brands/${brand.id}` as any)} // Assuming brand page exists or generic product list
+            onPress={() => router.push({
+              pathname: `/brand/${brand.id}` as any,
+              params: { name: brand.name }
+            })}
             className="mr-3 w-[138px] h-[165px] rounded-[1rem] items-center justify-center overflow-hidden"
           >
             {brand.image ? (

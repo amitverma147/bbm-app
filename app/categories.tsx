@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import Header from '../components/Header'
 import CategorySidebar from '../components/CategorySidebar'
 import SubCategoryGrid from '../components/SubCategoryGrid'
-import { getCategories } from '../services/categoryService'
+import { getCategoriesHierarchy } from '../services/categoryService'
 
 // Dummy categories for fallback
 const DUMMY_CATEGORIES = [
@@ -29,10 +29,10 @@ const Categories = () => {
 
     const loadCategories = async () => {
         setLoading(true);
-        const data = await getCategories();
-        if (data && data.length > 0) {
-            setCategories(data);
-            setSelectedCategory(data[0]);
+        const data = await getCategoriesHierarchy();
+        if (data && data.success && data.categories && data.categories.length > 0) {
+            setCategories(data.categories);
+            setSelectedCategory(data.categories[0]);
         } else {
             // Fallback to dummy data
             setCategories(DUMMY_CATEGORIES);

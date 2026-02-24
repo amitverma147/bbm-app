@@ -48,11 +48,9 @@ const ShopByCategory = ({ sectionName }: { sectionName?: string }) => {
 
   const handleSubcategoryPress = (category: any, subcategory: any) => {
     router.push({
-      pathname: "/categories",
+      pathname: `/category/${subcategory.id}` as any,
       params: {
-        categoryId: category.id,
-        subCategoryId: subcategory.id,
-        categoryName: category.name,
+        name: subcategory.name,
       },
     });
   };

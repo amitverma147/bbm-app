@@ -1,6 +1,6 @@
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { Image } from "expo-image";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter, Stack } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -344,6 +344,7 @@ export default function SingleProductPage() {
 
   return (
     <SafeAreaView className="flex-1 bg-white">
+      <Stack.Screen options={{ headerShown: false }} />
       <ScrollView
         className="flex-1"
         showsVerticalScrollIndicator={false}

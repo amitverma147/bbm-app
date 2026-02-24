@@ -68,7 +68,16 @@ const ShopByStore = ({ sectionName, sectionDescription }: ShopByStoreProps) => {
           <TouchableOpacity
             key={store.id}
             className="w-[23%] mb-4 items-center"
-            onPress={() => router.push(`/shopbystore/${store.id}` as any)}
+            onPress={() => {
+              const imageUrl = store.image_url || store.image || store.icon;
+              router.push({
+                pathname: `/store/${store.id}` as any,
+                params: {
+                  name: store.name,
+                  image: imageUrl || ""
+                }
+              });
+            }}
           >
             <View className="w-[77px] h-[77px] mb-2 items-center justify-center">
               {(() => {
