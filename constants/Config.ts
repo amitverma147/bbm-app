@@ -17,7 +17,7 @@ const getApiBaseUrl = () => {
         return 'http://localhost:8000/api';
     }
     // Production URL
-    return 'https://big-best-backend.vercel.app/api';
+    return 'https://api.amitdev.tech/api';
 };
 
 export const API_BASE_URL = getApiBaseUrl();
