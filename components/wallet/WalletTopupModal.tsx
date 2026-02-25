@@ -32,7 +32,7 @@ const WalletTopupModal: React.FC<WalletTopupModalProps> = ({ visible, onClose })
     const predefinedAmounts = [100, 250, 500, 1000, 2000, 5000];
 
     // Fallback key, usually you'd get this from env or API
-    const RAZORPAY_KEY = 'rzp_test_1DP5mmOlF5G5ag';
+    const RAZORPAY_KEY = 'rzp_test_RhxzggkElloJam';
 
     const handleAmountSelect = (val: number) => {
         setAmount(val.toString());
@@ -127,8 +127,22 @@ const WalletTopupModal: React.FC<WalletTopupModalProps> = ({ visible, onClose })
                 }
             }).catch((error: any) => {
                 console.error("Razorpay Error:", error);
-                Alert.alert(`Error: ${error.code} | ${error.description}`);
-                setError(error.description || "Payment cancelled or failed");
+
+                let errorDesc = error.description || "Payment cancelled or failed";
+
+                if (error.error && error.error.description) {
+                    errorDesc = error.error.description;
+                } else if (typeof error.description === 'string' && error.description.startsWith('{')) {
+                    try {
+                        const parsed = JSON.parse(error.description);
+                        if (parsed.error && parsed.error.description) {
+                            errorDesc = parsed.error.description;
+                        }
+                    } catch (e) { }
+                }
+
+                Alert.alert("Payment Info", errorDesc);
+                setError(errorDesc);
                 setIsProcessing(false);
             });
 

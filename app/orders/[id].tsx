@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Image, ActivityIndicator, Alert, Modal, TextInput } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, Feather, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_BASE_URL } from '../../constants/Config';
 import { useAuth } from '../../contexts/AuthContext';
 import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, withSequence } from 'react-native-reanimated';
+import OrderActionModal from '../../components/profile/OrderActionModal';
 
 const OrderDetailsScreen = () => {
     const { id } = useLocalSearchParams();
@@ -17,6 +18,10 @@ const OrderDetailsScreen = () => {
     const [submitting, setSubmitting] = useState(false);
     const [eligibility, setEligibility] = useState<any>(null);
     const [showReturnModal, setShowReturnModal] = useState(false);
+
+    // Order Actions State (Cancel / Global Return)
+    const [actionModalVisible, setActionModalVisible] = useState(false);
+    const [actionType, setActionType] = useState<"track" | "cancel" | "return" | null>(null);
 
     // Selected items for return
     const [selectedItems, setSelectedItems] = useState<string[]>([]);
@@ -73,8 +78,13 @@ const OrderDetailsScreen = () => {
             });
             const result = await response.json();
             if (result.success) {
-                setOrder(result.data);
+                // Handle different backend response structures
+                const fetchedOrder = result.order || result.data;
+                console.log("FETCHED ORDER: ", JSON.stringify(fetchedOrder, null, 2));
+                setOrder(fetchedOrder);
                 checkEligibility(id as string, token);
+            } else {
+                setOrder(null);
             }
         } catch (error) {
             console.error("Error fetching order details:", error);
@@ -91,7 +101,7 @@ const OrderDetailsScreen = () => {
             });
             const result = await response.json();
             if (result.success) {
-                setEligibility(result.data);
+                setEligibility(result.eligibility);
             }
         } catch (error) {
             console.log("Eligibility check failed:", error);
@@ -99,11 +109,9 @@ const OrderDetailsScreen = () => {
     };
 
     const toggleItemSelection = (itemId: string) => {
-        if (selectedItems.includes(itemId)) {
-            setSelectedItems(selectedItems.filter(id => id !== itemId));
-        } else {
-            setSelectedItems([...selectedItems, itemId]);
-        }
+        // Individual item return
+        setSelectedItems([itemId]);
+        setShowReturnModal(true);
     };
 
     const handleReturnSubmit = async () => {
@@ -132,11 +140,16 @@ const OrderDetailsScreen = () => {
                     'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify({
-                    orderId: id,
-                    items: selectedItems,
+                    order_id: id,
+                    user_id: currentUser?.id,
+                    return_type: 'return',
                     reason: returnReason,
-                    details: additionalDetails,
-                    bankDetails
+                    additional_details: additionalDetails,
+                    bank_account_holder_name: bankDetails.accountHolder,
+                    bank_account_number: bankDetails.accountNumber,
+                    bank_ifsc_code: bankDetails.ifscCode,
+                    bank_name: bankDetails.bankName,
+                    items: selectedItems.map(itemId => ({ order_item_id: itemId, quantity: order.order_items?.find((i: any) => i.id === itemId)?.quantity || 1 }))
                 })
             });
 
@@ -144,15 +157,23 @@ const OrderDetailsScreen = () => {
             if (result.success) {
                 Alert.alert("Success", "Request submitted successfully");
                 setShowReturnModal(false);
+                setSelectedItems([]);
+                setReturnReason('');
+                setAdditionalDetails('');
                 fetchOrderDetails(); // Refresh
             } else {
-                Alert.alert("Error", result.message || "Submission failed");
+                Alert.alert("Error", result.error || result.message || "Submission failed");
             }
         } catch (error) {
             Alert.alert("Error", "Communication error");
         } finally {
             setSubmitting(false);
         }
+    };
+
+    const handleOpenActionModal = (type: "track" | "cancel" | "return") => {
+        setActionType(type);
+        setActionModalVisible(true);
     };
 
     if (loading) {
@@ -180,6 +201,7 @@ const OrderDetailsScreen = () => {
 
     return (
         <SafeAreaView className="flex-1 bg-gray-50" edges={['top']}>
+            <Stack.Screen options={{ headerShown: false }} />
             {/* Header */}
             <View className="flex-row items-center justify-between px-4 py-3 bg-white border-b border-gray-100">
                 <TouchableOpacity onPress={() => router.back()} className="p-2 -ml-2">
@@ -278,76 +300,138 @@ const OrderDetailsScreen = () => {
                         </View>
                     </View>
 
-                    {order.items?.map((item: any, index: number) => (
-                        <View key={index} className={`flex-row items-center py-3 ${index !== order.items.length - 1 ? 'border-b border-gray-50' : ''}`}>
-                            <View className="w-16 h-16 bg-gray-50 rounded-xl overflow-hidden mr-3">
-                                <Image source={{ uri: item.image || 'https://via.placeholder.com/150' }} className="w-full h-full" />
+                    {order.order_items?.map((item: any, index: number) => {
+                        const itemId = item.id;
+
+                        // Use product properties directly if variant is null
+                        const productImage = item.variant?.product?.media?.[0]?.url || item.variant?.media?.[0]?.url || item.image || 'https://via.placeholder.com/150';
+                        const productName = item.variant?.title ? `${item.variant?.product?.name || item.product_name} - ${item.variant.title}` : (item.variant?.product?.name || item.product_name || 'Product');
+
+                        // Check eligibility block
+                        let eligibilityInfo = eligibility?.item_eligibility?.[itemId];
+
+                        // If eligibility fails, fallback to product's return_applicable & return_days
+                        const isEligibleFallback = item.variant?.product?.return_applicable &&
+                            order.status?.toLowerCase() === 'delivered' &&
+                            item.variant?.product?.return_days > 0;
+                        const remainingDaysFallback = item.variant?.product?.return_days;
+
+                        const isEligible = eligibilityInfo?.is_eligible || isEligibleFallback;
+                        const remainingDays = eligibilityInfo?.remaining_days || remainingDaysFallback;
+
+                        // Check if this item is already in a return request
+                        const returnRequest = order.return_orders?.find((ro: any) =>
+                            ro.return_order_items?.some((roi: any) => roi.order_item_id === itemId)
+                        );
+
+                        return (
+                            <View key={index} className={`py-4 ${index !== order.order_items?.length - 1 ? 'border-b border-gray-50' : ''}`}>
+                                <View className="flex-row items-center">
+                                    <View className="w-16 h-16 bg-gray-50 rounded-xl overflow-hidden mr-3">
+                                        <Image source={{ uri: productImage }} className="w-full h-full" resizeMode="cover" />
+                                    </View>
+                                    <View className="flex-1">
+                                        <Text className="text-sm font-bold text-gray-900" numberOfLines={2}>{productName}</Text>
+                                        <Text className="text-xs text-gray-500 mt-1">Qty: {item.quantity} • ₹{item.price}</Text>
+
+                                        {/* Status Indicators */}
+                                        {returnRequest ? (
+                                            <View className="flex-row items-center mt-2">
+                                                <View className={`px-2 py-0.5 rounded-full ${returnRequest.status === 'completed' ? 'bg-green-50 border border-green-100' :
+                                                    returnRequest.status === 'rejected' ? 'bg-red-50 border border-red-100' : 'bg-blue-50 border border-blue-100'
+                                                    }`}>
+                                                    <Text className={`text-[9px] font-bold ${returnRequest.status === 'completed' ? 'text-green-600' :
+                                                        returnRequest.status === 'rejected' ? 'text-red-600' : 'text-blue-600'
+                                                        }`}>
+                                                        RETURN {returnRequest.status.toUpperCase()}
+                                                    </Text>
+                                                </View>
+                                            </View>
+                                        ) : (
+                                            isEligible && (
+                                                <Text className="text-[10px] text-orange-600 font-medium mt-1">
+                                                    Returnable within {remainingDays} days
+                                                </Text>
+                                            )
+                                        )}
+                                    </View>
+                                    <View className="items-end">
+                                        <Text className="text-sm font-bold text-gray-900">₹{item.quantity * item.price}</Text>
+
+                                        {!returnRequest && isEligible && (
+                                            <TouchableOpacity
+                                                onPress={() => toggleItemSelection(itemId)}
+                                                className="mt-2 bg-white border border-orange-600 px-3 py-1.5 rounded-lg active:bg-orange-50"
+                                            >
+                                                <Text className="text-[11px] font-bold text-orange-600">Return</Text>
+                                            </TouchableOpacity>
+                                        )}
+                                    </View>
+                                </View>
                             </View>
-                            <View className="flex-1">
-                                <Text className="text-sm font-bold text-gray-900" numberOfLines={1}>{item.product_name}</Text>
-                                <Text className="text-xs text-gray-500 mt-1">Qty: {item.quantity} • ₹{item.price}</Text>
-                            </View>
-                            <View className="items-end">
-                                <Text className="text-sm font-bold text-gray-900">₹{item.total}</Text>
-                                {eligibility?.is_eligible && (
-                                    <TouchableOpacity
-                                        onPress={() => toggleItemSelection(item.id || item._id)}
-                                        className={`mt-2 w-6 h-6 rounded-md border items-center justify-center ${selectedItems.includes(item.id || item._id) ? 'bg-orange-600 border-orange-600' : 'border-gray-300'}`}
-                                    >
-                                        {selectedItems.includes(item.id || item._id) && <Ionicons name="checkmark" size={16} color="white" />}
-                                    </TouchableOpacity>
-                                )}
-                            </View>
-                        </View>
-                    ))}
+                        );
+                    })}
                 </View>
 
-                {/* Return/Cancel Prompt */}
-                {eligibility?.is_eligible && (
-                    <View className="bg-orange-50 p-4 mx-4 rounded-2xl border border-orange-100 mb-3">
-                        <View className="flex-row items-center mb-2">
-                            <MaterialCommunityIcons name="keyboard-return" size={20} color="#EA580C" />
-                            <Text className="text-orange-800 font-bold ml-2">Need to Return or Cancel?</Text>
-                        </View>
-                        <Text className="text-xs text-orange-700 mb-3">
-                            You can return items within {eligibility?.remaining_days} days. Select items above to proceed.
-                        </Text>
-                        <TouchableOpacity
-                            onPress={() => setShowReturnModal(true)}
-                            disabled={selectedItems.length === 0}
-                            className={`py-3 rounded-xl items-center ${selectedItems.length > 0 ? 'bg-orange-600 shadow-sm' : 'bg-gray-300'}`}
-                        >
-                            <Text className="text-white font-bold">
-                                {selectedItems.length > 0 ? `Return ${selectedItems.length} Item(s)` : 'Select items to return'}
-                            </Text>
-                        </TouchableOpacity>
-                    </View>
-                )}
-
-                {/* Submitting Status If Requesting */}
-                {order.return_requests?.length > 0 && (
-                    <View className="bg-blue-50 p-4 mx-4 rounded-2xl border border-blue-100 mb-3">
-                        <Text className="text-blue-800 font-bold mb-1">Return Request Active</Text>
-                        <Text className="text-xs text-blue-700">Status: {order.return_requests[0].status}</Text>
-                    </View>
-                )}
 
                 {/* Billing Summary */}
                 <View className="bg-white p-4 mb-3">
                     <Text className="text-base font-bold text-gray-900 mb-4">Payment Summary</Text>
                     <View className="flex-row justify-between mb-2">
                         <Text className="text-gray-500 text-sm">Item Total</Text>
-                        <Text className="text-gray-900 text-sm font-medium">₹{order.total_amount}</Text>
+                        <Text className="text-gray-900 text-sm font-medium">₹{order.subtotal || order.total_amount}</Text>
                     </View>
                     <View className="flex-row justify-between mb-2">
                         <Text className="text-gray-500 text-sm">Delivery Fee</Text>
-                        <Text className="text-green-600 text-sm font-medium">FREE</Text>
+                        <Text className="text-green-600 text-sm font-medium">{Number(order.shipping) > 0 ? `₹${order.shipping}` : 'FREE'}</Text>
                     </View>
+
+                    {Number(order.handling_charge) > 0 && (
+                        <View className="flex-row justify-between mb-2">
+                            <Text className="text-gray-500 text-sm">Handling Charge</Text>
+                            <Text className="text-gray-900 text-sm font-medium">₹{order.handling_charge}</Text>
+                        </View>
+                    )}
+
+                    {Number(order.surge_charge) > 0 && (
+                        <View className="flex-row justify-between mb-2">
+                            <Text className="text-gray-500 text-sm">Surge Charge</Text>
+                            <Text className="text-gray-900 text-sm font-medium">₹{order.surge_charge}</Text>
+                        </View>
+                    )}
+
+                    {Number(order.platform_charge) > 0 && (
+                        <View className="flex-row justify-between mb-2">
+                            <Text className="text-gray-500 text-sm">Platform Charge</Text>
+                            <Text className="text-gray-900 text-sm font-medium">₹{order.platform_charge}</Text>
+                        </View>
+                    )}
+
+                    {Number(order.discount_charge) > 0 && (
+                        <View className="flex-row justify-between mb-2">
+                            <Text className="text-gray-500 text-sm">Discount</Text>
+                            <Text className="text-green-600 text-sm font-medium">-₹{order.discount_charge}</Text>
+                        </View>
+                    )}
+
                     <View className="flex-row justify-between pt-2 border-t border-gray-50 mt-2">
                         <Text className="text-gray-900 font-bold">Total Pay</Text>
-                        <Text className="text-orange-600 font-bold">₹{order.total_amount}</Text>
+                        <Text className="text-orange-600 font-bold">₹{order.total || order.total_amount}</Text>
                     </View>
                 </View>
+
+                {/* Cancel Order Action */}
+                {isActive && order.status?.toLowerCase() !== 'shipped' && (
+                    <View className="px-4 mb-3">
+                        <TouchableOpacity
+                            onPress={() => handleOpenActionModal('cancel')}
+                            className="bg-white border border-red-200 p-4 rounded-xl items-center flex-row justify-center active:bg-red-50"
+                        >
+                            <Feather name="x-circle" size={18} color="#EF4444" className="mr-2" />
+                            <Text className="text-red-500 font-bold ml-2">Cancel Order</Text>
+                        </TouchableOpacity>
+                    </View>
+                )}
 
                 {/* Shipping Details */}
                 <View className="bg-white p-4 mb-3">
@@ -355,10 +439,15 @@ const OrderDetailsScreen = () => {
                     <View className="flex-row items-start">
                         <Feather name="map-pin" size={16} color="#4B5563" style={{ marginTop: 2 }} />
                         <View className="ml-2 flex-1">
-                            <Text className="text-sm font-bold text-gray-900">{order.shipping_address?.name || currentUser?.name}</Text>
+                            <Text className="text-sm font-bold text-gray-900">{order.receiver_name || currentUser?.name}</Text>
                             <Text className="text-xs text-gray-500 mt-1 leading-4">
-                                {order.shipping_address?.flat_no}, {order.shipping_address?.area}, {order.shipping_address?.landmark}, {order.shipping_address?.city}, {order.shipping_address?.pincode}
+                                {order.address || 'Address not available'}
                             </Text>
+                            {order.mobile && (
+                                <Text className="text-xs text-gray-600 font-medium mt-1">
+                                    Phone: {order.mobile}
+                                </Text>
+                            )}
                         </View>
                     </View>
                 </View>
@@ -386,10 +475,12 @@ const OrderDetailsScreen = () => {
                             {/* Selected Items Summary */}
                             <Text className="text-sm font-bold text-gray-900 mb-3">Items being returned ({selectedItems.length})</Text>
                             <View className="bg-gray-50 p-3 rounded-2xl mb-4">
-                                {order.items?.filter((i: any) => selectedItems.includes(i.id || i._id)).map((item: any, idx: number) => (
+                                {order.order_items?.filter((i: any) => selectedItems.includes(i.id)).map((item: any, idx: number) => (
                                     <View key={idx} className="flex-row items-center mb-2">
-                                        <View className="w-8 h-8 rounded bg-gray-200 mr-2" />
-                                        <Text className="flex-1 text-xs text-gray-700" numberOfLines={1}>{item.product_name}</Text>
+                                        <View className="w-8 h-8 rounded bg-gray-200 mr-2 border border-gray-100 overflow-hidden">
+                                            <Image source={{ uri: item.variant?.product?.media?.[0]?.url || item.variant?.media?.[0]?.url || item.image || 'https://via.placeholder.com/150' }} className="w-full h-full" />
+                                        </View>
+                                        <Text className="flex-1 text-xs text-gray-700 font-bold" numberOfLines={1}>{item.variant?.title ? `${item.variant?.product?.name || item.product_name} - ${item.variant.title}` : (item.variant?.product?.name || item.product_name)}</Text>
                                     </View>
                                 ))}
                             </View>
@@ -463,6 +554,17 @@ const OrderDetailsScreen = () => {
                     </View>
                 </View>
             </Modal>
+
+            {/* Global Order Action Modal (Cancel/Return) */}
+            {order && (
+                <OrderActionModal
+                    visible={actionModalVisible}
+                    onClose={() => setActionModalVisible(false)}
+                    actionType={actionType}
+                    order={order}
+                    onSuccess={fetchOrderDetails}
+                />
+            )}
         </SafeAreaView>
     );
 };

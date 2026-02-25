@@ -74,17 +74,40 @@ const Header = () => {
   const [pickedLocation, setPickedLocation] = useState<any>(null);
   const [isSavingAddress, setIsSavingAddress] = useState(false);
 
-  // -- Search Handler --
-  const handleSearch = async (text: string) => {
-    setSearchQuery(text);
-    if (text.length > 2) {
-      try {
-        const results = await searchAll(text);
-        console.log("Search results:", results);
-      } catch (e) {
-        console.error(e);
+  // -- Search & Debounce State --
+  const [searchResults, setSearchResults] = useState<any>(null);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
+
+  // Debounce hook effect
+  useEffect(() => {
+    const handler = setTimeout(async () => {
+      if (searchQuery.trim().length > 2) {
+        setIsSearching(true);
+        try {
+          const res = await searchAll(searchQuery.trim());
+          if (res.success) {
+            setSearchResults(res.results);
+            setShowDropdown(true);
+          }
+        } catch (e) {
+          console.error("Search error:", e);
+        } finally {
+          setIsSearching(false);
+        }
+      } else {
+        setSearchResults(null);
+        setShowDropdown(false);
       }
-    }
+    }, 500); // 500ms debounce
+
+    return () => clearTimeout(handler);
+  }, [searchQuery]);
+
+  // -- Search Handler --
+  const handleSearch = (text: string) => {
+    setSearchQuery(text);
+    if (!showDropdown && text.length > 2) setShowDropdown(true);
   };
 
   // -- Location Handlers --
@@ -164,19 +187,18 @@ const Header = () => {
       : "Select Location";
 
   return (
-    <SafeAreaView edges={["top"]} className="bg-white">
+    <SafeAreaView edges={["top"]} className="bg-white z-50">
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
-      <View className="bg-white pb-4 shadow-sm border-b border-gray-100 rounded-b-[24px]">
+      <View className="bg-white pb-4 shadow-sm border-b border-gray-100 rounded-b-[24px] z-50">
         {/* Quick Tabs - Tab View */}
         <View className="flex-row items-center justify-between px-4 pt-3 pb-2 w-full">
           {QUICK_ACCESS.map((item) => (
             <TouchableOpacity
               key={item.id}
-              className={`flex-1 mx-1 flex-col items-center justify-center py-2.5 rounded-[14px] border ${
-                item.active
-                  ? "bg-orange-50 border-orange-300"
-                  : "bg-white border-gray-200"
-              } shadow-sm`}
+              className={`flex-1 mx-1 flex-col items-center justify-center py-2.5 rounded-[14px] border ${item.active
+                ? "bg-orange-50 border-orange-300"
+                : "bg-white border-gray-200"
+                } shadow-sm`}
             >
               <Ionicons
                 name={
@@ -193,9 +215,8 @@ const Header = () => {
                 style={{ marginBottom: 4 }}
               />
               <Text
-                className={`text-[11px] font-black ${
-                  item.active ? "text-orange-700" : "text-gray-700"
-                }`}
+                className={`text-[11px] font-black ${item.active ? "text-orange-700" : "text-gray-700"
+                  }`}
                 numberOfLines={1}
               >
                 {item.title}
@@ -276,8 +297,8 @@ const Header = () => {
         </View>
 
         {/* Search Bar - Floating effect */}
-        <View className="px-5 mb-2 relative z-10">
-          <View className="flex-row items-center bg-white rounded-2xl shadow-[0_4px_20px_-10px_rgba(0,0,0,0.1)] border border-gray-100 h-14 px-4">
+        <View className="px-5 mb-2 relative z-50">
+          <View className="flex-row items-center bg-white rounded-2xl shadow-[0_4px_20px_-10px_rgba(0,0,0,0.1)] border border-gray-100 h-14 px-4 z-50">
             <Ionicons name="search" size={22} color="#F97316" />
             <TextInput
               placeholder="Search explicitly..."
@@ -285,12 +306,159 @@ const Header = () => {
               placeholderTextColor="#94A3B8"
               value={searchQuery}
               onChangeText={handleSearch}
+              onFocus={() => {
+                if (searchQuery.length > 2) setShowDropdown(true);
+              }}
+              onBlur={() => setTimeout(() => setShowDropdown(false), 200)}
             />
+            {isSearching ? (
+              <View className="mr-2">
+                <Text className="text-xs text-gray-400">...</Text>
+              </View>
+            ) : null}
             <View className="h-6 w-[1px] bg-gray-200 mx-2" />
-            <TouchableOpacity>
-              <Ionicons name="mic" size={22} color="#64748B" />
+            <TouchableOpacity onPress={() => setSearchQuery("")}>
+              <Ionicons name="close-circle" size={20} color={searchQuery ? "#64748B" : "transparent"} />
             </TouchableOpacity>
           </View>
+
+          {/* Search Dropdown */}
+          {showDropdown && (searchQuery.length > 2) && (
+            <View
+              className="absolute top-16 left-5 right-5 bg-white rounded-xl shadow-lg border border-gray-100 p-2 max-h-80 overflow-hidden"
+              style={{ zIndex: 9999, elevation: 10 }}
+            >
+              <ScrollView keyboardShouldPersistTaps="handled">
+                {isSearching ? (
+                  <View className="py-4 items-center">
+                    <Text className="text-gray-500 text-sm">Searching...</Text>
+                  </View>
+                ) : searchResults?.total > 0 ? (
+                  <>
+                    {/* Products */}
+                    {searchResults.products?.length > 0 && (
+                      <View className="mb-2">
+                        <Text className="text-xs font-bold text-gray-400 mb-1 px-2 uppercase tracking-wider">Products</Text>
+                        {searchResults.products.map((product: any) => (
+                          <TouchableOpacity
+                            key={product.id}
+                            className="flex-row items-center p-2 rounded-lg active:bg-orange-50"
+                            onPress={() => {
+                              setShowDropdown(false);
+                              router.push(`/product/${product.id}`);
+                            }}
+                          >
+                            <Ionicons name="search-outline" size={16} color="#9CA3AF" className="mr-2" />
+                            <View className="flex-1 ml-2">
+                              <Text className="text-sm text-gray-800 font-medium" numberOfLines={1}>{product.name}</Text>
+                              {product.category && (
+                                <Text className="text-[10px] text-gray-500 mt-0.5">in {product.category}</Text>
+                              )}
+                            </View>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    )}
+
+                    {/* Categories */}
+                    {searchResults.categories?.length > 0 && (
+                      <View className="mb-2">
+                        <Text className="text-xs font-bold text-gray-400 mb-1 px-2 uppercase tracking-wider">Categories</Text>
+                        {searchResults.categories.map((cat: any, i: number) => (
+                          <TouchableOpacity
+                            key={i}
+                            className="flex-row items-center p-2 rounded-lg active:bg-orange-50"
+                            onPress={() => {
+                              setShowDropdown(false);
+                              router.push(`/category/${cat.id}` as any);
+                            }}
+                          >
+                            <Ionicons name="apps-outline" size={16} color="#9CA3AF" className="mr-2" />
+                            <Text className="text-sm text-gray-800 ml-2 font-medium" numberOfLines={1}>{cat.name}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    )}
+
+                    {/* Subcategories */}
+                    {searchResults.subcategories?.length > 0 && (
+                      <View className="mb-2">
+                        <Text className="text-xs font-bold text-gray-400 mb-1 px-2 uppercase tracking-wider">Subcategories</Text>
+                        {searchResults.subcategories.map((sub: any, i: number) => (
+                          <TouchableOpacity
+                            key={i}
+                            className="flex-row items-center p-2 rounded-lg active:bg-orange-50"
+                            onPress={() => {
+                              setShowDropdown(false);
+                              router.push(`/category/${sub.id}` as any);
+                            }}
+                          >
+                            <Ionicons name="pricetag-outline" size={16} color="#9CA3AF" className="mr-2" />
+                            <Text className="text-sm text-gray-800 ml-2 font-medium" numberOfLines={1}>{sub.name}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    )}
+
+                    {/* Brands */}
+                    {searchResults.brands?.length > 0 && (
+                      <View className="mb-2">
+                        <Text className="text-xs font-bold text-gray-400 mb-1 px-2 uppercase tracking-wider">Brands</Text>
+                        {searchResults.brands.map((brand: any, i: number) => (
+                          <TouchableOpacity
+                            key={i}
+                            className="flex-row items-center p-2 rounded-lg active:bg-orange-50"
+                            onPress={() => {
+                              setShowDropdown(false);
+                              router.push(`/brand/${brand.name}` as any);
+                            }}
+                          >
+                            <Ionicons name="ribbon-outline" size={16} color="#9CA3AF" className="mr-2" />
+                            <Text className="text-sm text-gray-800 ml-2 font-medium" numberOfLines={1}>{brand.name}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    )}
+
+                    {/* Stores */}
+                    {searchResults.stores?.length > 0 && (
+                      <View className="mb-2">
+                        <Text className="text-xs font-bold text-gray-400 mb-1 px-2 uppercase tracking-wider">Stores</Text>
+                        {searchResults.stores.map((store: any, i: number) => (
+                          <TouchableOpacity
+                            key={i}
+                            className="flex-row items-center p-2 rounded-lg active:bg-orange-50"
+                            onPress={() => {
+                              setShowDropdown(false);
+                              router.push(`/store/${store.id}` as any);
+                            }}
+                          >
+                            <Ionicons name="storefront-outline" size={16} color="#9CA3AF" className="mr-2" />
+                            <Text className="text-sm text-gray-800 ml-2 font-medium" numberOfLines={1}>{store.name}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    )}
+
+                    <TouchableOpacity
+                      className="py-3 items-center border-t border-gray-100 mt-1"
+                      onPress={() => {
+                        setShowDropdown(false);
+                        router.push(`/search?q=${searchQuery}` as any);
+                      }}
+                    >
+                      <Text className="text-orange-600 font-bold text-sm">See all {searchResults.total} results for "{searchQuery}"</Text>
+                    </TouchableOpacity>
+                  </>
+                ) : (
+                  <View className="py-6 items-center">
+                    <Text className="text-gray-500 font-medium mb-1">No matches found</Text>
+                    <Text className="text-xs text-gray-400 text-center px-4">Try searching for products, categories, or brands</Text>
+                  </View>
+                )}
+              </ScrollView>
+            </View>
+          )}
         </View>
       </View>
 

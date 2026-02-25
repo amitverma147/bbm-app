@@ -134,23 +134,37 @@ export default function SingleProductPage() {
         ? selectedVariant.discount_percentage
         : product?.discount || 0;
 
-  // Helper function from Web (UnifiedProductCard.jsx & UniqueVariantCard.jsx)
-  const checkIsVariantOutOfStock = (variant: any) => {
-    if (!variant) return false;
-    if (variant.inStock !== undefined && variant.inStock === false) return true;
-    if (variant.availableStock !== undefined && variant.availableStock <= 0) return true;
-    // Legacy fallback
-    if (variant.stockInfo || variant.stock_info) {
-      const isStockFalse = (variant.stockInfo?.in_stock ?? variant.stock_info?.in_stock) === false;
-      const isAvailableZero = (variant.stockInfo?.available_stock ?? variant.stock_info?.available_stock ?? 1) <= 0;
-      if (isStockFalse || isAvailableZero) return true;
+  const checkIsOutOfStock = (variant: any, productObj: any) => {
+    if (variant) {
+      if (variant.inStock !== undefined && variant.inStock === false) return true;
+      if (variant.availableStock !== undefined && variant.availableStock <= 0) return true;
+      if (variant.stockInfo || variant.stock_info) {
+        const isStockFalse = (variant.stockInfo?.in_stock ?? variant.stock_info?.in_stock) === false;
+        const isAvailableZero = (variant.stockInfo?.available_stock ?? variant.stock_info?.available_stock ?? 1) <= 0;
+        if (isStockFalse || isAvailableZero) return true;
+      }
+      if (variant.variant_stock !== undefined && variant.variant_stock <= 0) return true;
+      if (variant.stock !== undefined && variant.stock <= 0) return true;
+
+      if (variant.inStock === true || variant.availableStock > 0 || variant.stock > 0 || variant.variant_stock > 0) return false;
     }
-    if (variant.variant_stock !== undefined && variant.variant_stock <= 0) return true;
-    if (variant.stock !== undefined && variant.stock <= 0) return true;
+
+    if (productObj) {
+      if (productObj.inStock !== undefined && productObj.inStock === false) return true;
+      if (productObj.availableStock !== undefined && productObj.availableStock <= 0) return true;
+      if ((productObj as any).stockQuantity !== undefined && (productObj as any).stockQuantity <= 0) return true;
+      if (productObj.stockInfo || productObj.stock_info) {
+        const isStockFalse = (productObj.stockInfo?.in_stock ?? productObj.stock_info?.in_stock) === false;
+        const isAvailableZero = (productObj.stockInfo?.available_stock ?? productObj.stock_info?.available_stock ?? 1) <= 0;
+        if (isStockFalse || isAvailableZero) return true;
+      }
+      if (productObj.stock !== undefined && productObj.stock <= 0) return true;
+    }
+
     return false;
   };
 
-  const isOutOfStock = checkIsVariantOutOfStock(selectedVariant || product);
+  const isOutOfStock = checkIsOutOfStock(selectedVariant, product);
 
   const stockInfo = selectedVariant?.stock_info || product?.stock_info || { available_stock: 0 };
   const availableStock = stockInfo.available_stock !== undefined ? stockInfo.available_stock : (product?.stock || 0);

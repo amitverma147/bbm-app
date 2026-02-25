@@ -40,10 +40,86 @@ const CartScreen = () => {
   const { currentUser, getAccessToken } = useAuth();
 
   const [isBillDetailsOpen, setIsBillDetailsOpen] = useState(true);
+  const [isCouponsOpen, setIsCouponsOpen] = useState(false);
+
+  // Availability State
   const [checkingAvailability, setCheckingAvailability] = useState(false);
   const [availabilityData, setAvailabilityData] = useState<any>({});
+  const [allAvailable, setAllAvailable] = useState(true);
+  const [maxDeliveryDays, setMaxDeliveryDays] = useState(0);
+  const [isScheduled, setIsScheduled] = useState(false);
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+
   const [relatedProducts, setRelatedProducts] = useState<any[]>([]);
   const [loadingRelated, setLoadingRelated] = useState(false);
+
+  // Info Modal State
+  const [infoModal, setInfoModal] = useState({
+    isOpen: false,
+    title: "",
+    content: null as React.ReactNode,
+  });
+
+  const handleOpenInfoModal = (type: string) => {
+    let title = "";
+    let content = null;
+
+    switch (type) {
+      case "delivery":
+        title = "Delivery charge";
+        content = (
+          <View className="space-y-3">
+            <View className="flex-row justify-between items-center">
+              <Text className="text-gray-700 text-sm">Orders above ₹299</Text>
+              <Text className="font-bold text-gray-900 text-sm">₹0</Text>
+            </View>
+            <View className="flex-row justify-between items-center mt-2">
+              <Text className="text-gray-700 text-sm">Orders below ₹299</Text>
+              <Text className="font-bold text-gray-900 text-sm">₹40</Text>
+            </View>
+            <View className="bg-gray-50 p-2 rounded mt-3">
+              <Text className="text-xs text-gray-500">Free delivery on orders above ₹299</Text>
+            </View>
+          </View>
+        );
+        break;
+      case "handling":
+        title = "Handling charge";
+        content = (
+          <Text className="text-sm text-gray-600 leading-relaxed">
+            Handling charge for proper handling and ensuring high quality quick-deliveries.
+          </Text>
+        );
+        break;
+      case "surge":
+        title = "Surge charge";
+        content = (
+          <View className="space-y-3">
+            <View className="flex-row justify-between items-center">
+              <Text className="text-gray-700 text-sm">Orders above ₹499</Text>
+              <Text className="font-bold text-gray-900 text-sm">₹0</Text>
+            </View>
+            <View className="flex-row justify-between items-center mt-2">
+              <Text className="text-gray-700 text-sm">Orders below ₹499</Text>
+              <Text className="font-bold text-gray-900 text-sm">₹35</Text>
+            </View>
+          </View>
+        );
+        break;
+      case "platform":
+        title = "Platform Fee";
+        content = (
+          <Text className="text-sm text-gray-600 leading-relaxed">
+            Platform fee helps us improve our services and ensure a seamless shopping experience for you.
+          </Text>
+        );
+        break;
+      default:
+        return;
+    }
+
+    setInfoModal({ isOpen: true, title, content });
+  };
 
   // Payment State
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'COD' | 'WALLET' | 'ONLINE'>('COD');
@@ -79,6 +155,7 @@ const CartScreen = () => {
   const [showAddressForm, setShowAddressForm] = useState(false);
   const [pickedLocation, setPickedLocation] = useState<any>(null);
   const [isSavingAddress, setIsSavingAddress] = useState(false);
+  const [showDisclaimerModal, setShowDisclaimerModal] = useState(false);
 
   // --- Handlers for New Address Flow ---
 
@@ -141,6 +218,13 @@ const CartScreen = () => {
     });
   }, [cartItems, availabilityData]);
 
+  const availableCartItems = useMemo(() => {
+    return cartItems.filter(item => {
+      const key = item.variant_id ? `${item.id}-${item.variant_id}` : String(item.id);
+      return !availabilityData[key] || availabilityData[key].available !== false;
+    });
+  }, [cartItems, availabilityData]);
+
   const allItemsUnavailable = cartItems.length > 0 && unavailableItems.length === cartItems.length;
   const hasUnavailableItems = unavailableItems.length > 0;
 
@@ -152,6 +236,14 @@ const CartScreen = () => {
       return total + price * quantity;
     }, 0);
   }, [cartItems]);
+
+  const availableItemTotal = useMemo(() => {
+    return availableCartItems.reduce((total, item) => {
+      const price = parseFloat(item.price as string) || 0;
+      const quantity = parseInt(item.quantity as any) || 1;
+      return total + price * quantity;
+    }, 0);
+  }, [availableCartItems]);
 
   // 2. Original Item Total (MRP)
   const originalItemTotal = useMemo(() => {
@@ -199,18 +291,30 @@ const CartScreen = () => {
   // Fetch Charges
   useEffect(() => {
     const fetchCharges = async () => {
+      if (cartItems.length === 0) {
+        setCharges({
+          handling_charge: 0,
+          surge_charge: 0,
+          platform_charge: 0,
+          delivery_charge: 0,
+          discount_charge: 0,
+        });
+        return;
+      }
+
       try {
         const response = await fetch(`${API_BASE_URL}/charge-settings`);
         const data = await response.json();
 
         if (data.success && data.data) {
-          const milestoneSurcharge = parseFloat(deliverySettings.surcharge as any) || 0;
+          const deliverySettingsInfo = getDeliverySettings(itemTotal);
+          const milestoneSurcharge = parseFloat(deliverySettingsInfo.surcharge as any) || 0;
           setCharges({
             handling_charge: parseFloat(data.data.handling_charge) || 0,
             surge_charge: milestoneSurcharge,
             platform_charge: parseFloat(data.data.platform_charge) || 0,
             discount_charge: parseFloat(data.data.discount_charge) || 0,
-            delivery_charge: deliveryCharge,
+            delivery_charge: parseFloat(deliverySettingsInfo.charge as any) || 0,
           });
         }
       } catch (error) {
@@ -218,46 +322,52 @@ const CartScreen = () => {
       }
     };
     fetchCharges();
-  }, [cartItems.length, itemTotal, deliverySettings]);
+  }, [cartItems.length, itemTotal, getDeliverySettings]);
 
   // Check Availability
-  useEffect(() => {
-    const verifyAvailability = async () => {
-      console.log("Verify Availability Triggered. CartItems:", cartItems.length, "Pincode:", pincode);
-      if (cartItems.length === 0 || !pincode) {
-        console.log("Skipping availability check due to missing items or pincode");
-        return;
-      }
-      setCheckingAvailability(true);
-      try {
-        const response = await fetch(`${API_BASE_URL}/productsroute/availability/check-cart`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            items: cartItems.map((item) => ({
-              product_id: item.id,
-              variant_id: item.variant_id,
-              quantity: item.quantity,
-            })),
-            pincode: pincode,
-          }),
+  const verifyCartAvailability = async () => {
+    if (cartItems.length === 0 || !pincode) {
+      setAvailabilityData({});
+      setAllAvailable(true);
+      return false;
+    }
+    setCheckingAvailability(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/productsroute/availability/check-cart`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: cartItems.map((item) => ({
+            product_id: item.id,
+            variant_id: item.variant_id,
+            quantity: item.quantity,
+          })),
+          pincode: pincode,
+        }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        const newAvailability: any = {};
+        data.items.forEach((item: any) => {
+          const key = item.variant_id ? `${item.product_id}-${item.variant_id}` : String(item.product_id);
+          newAvailability[key] = item;
         });
-        const data = await response.json();
-        if (data.success) {
-          const newAvailability: any = {};
-          data.items.forEach((item: any) => {
-            const key = item.variant_id ? `${item.product_id}-${item.variant_id}` : String(item.product_id);
-            newAvailability[key] = item;
-          });
-          setAvailabilityData(newAvailability);
-        }
-      } catch (error) {
-        console.warn("Availability check failed", error);
-      } finally {
-        setCheckingAvailability(false);
+        setAvailabilityData(newAvailability);
+        setAllAvailable(data.all_available);
+        setMaxDeliveryDays(data.max_delivery_days || 0);
+        return data.all_available;
       }
-    };
-    verifyAvailability();
+      return false;
+    } catch (error) {
+      console.warn("Availability check failed", error);
+      return false;
+    } finally {
+      setCheckingAvailability(false);
+    }
+  };
+
+  useEffect(() => {
+    verifyCartAvailability();
   }, [cartItems.length, pincode]);
 
   // Fetch Related Products
@@ -397,22 +507,21 @@ const CartScreen = () => {
     }
 
     if (hasUnavailableItems) {
-      Alert.alert(
-        "Items Unavailable",
-        "Some items in your cart are not available. Do you want to proceed with only available items?",
-        [
-          { text: "Cancel", style: "cancel" },
-          {
-            text: "Proceed", onPress: () => {
-              setShowPaymentModal(true);
-            }
-          }
-        ]
-      );
+      setShowDisclaimerModal(true);
       return;
     }
 
     setShowPaymentModal(true);
+  };
+
+  const handleDisclaimerProceed = () => {
+    setShowDisclaimerModal(false);
+    setShowPaymentModal(true);
+  };
+
+  const handleDisclaimerChangeAddress = () => {
+    setShowDisclaimerModal(false);
+    setShowAddressModal(true);
   };
 
   const handlePaymentMethodSelect = (method: 'COD' | 'WALLET' | 'ONLINE') => {
@@ -447,17 +556,28 @@ const CartScreen = () => {
         addressToUse = `${location || 'Home'}, ${pincode}`;
       }
 
+      const finalCartItems = hasUnavailableItems ? availableCartItems : cartItems;
+      const finalItemTotal = hasUnavailableItems ? availableItemTotal : itemTotal;
+      const finalTotalToPay = Math.max(0,
+        finalItemTotal +
+        feeTotal +
+        deliveryCharge -
+        (milestoneDiscount || 0) -
+        couponDiscount -
+        charges.discount_charge
+      );
+
       const commonPayload = {
         user_id: currentUser.id,
-        items: cartItems.map(item => ({
+        items: finalCartItems.map(item => ({
           product_id: item.id,
           variant_id: item.variant_id,
           quantity: item.quantity,
           price: item.price
         })),
-        subtotal: itemTotal,
+        subtotal: finalItemTotal,
         shipping: deliveryCharge,
-        total: totalToPay,
+        total: finalTotalToPay,
         address: addressToUse,
         receiver_name: receiverName,
         mobile: mobile,
@@ -472,7 +592,7 @@ const CartScreen = () => {
       };
 
       if (method === 'WALLET') {
-        if (walletBalance < totalToPay) {
+        if (walletBalance < finalTotalToPay) {
           Alert.alert("Insufficient Balance", "Your wallet balance is insufficient for this order.");
           setIsPlacingOrder(false);
           return;
@@ -579,7 +699,10 @@ const CartScreen = () => {
               {item.variant_name || item.unit || "1 pack"}
             </Text>
 
-            {isUnavailable ? (
+            {/* Availability Message */}
+            {checkingAvailability ? (
+              <Text className="text-[10px] text-gray-400 mt-1">Checking...</Text>
+            ) : isUnavailable ? (
               <Text className="text-[10px] text-red-600 font-bold mt-1">Not available at {pincode || 'location'}</Text>
             ) : availability?.delivery_message ? (
               <View className="flex-row items-center mt-1">
@@ -587,6 +710,12 @@ const CartScreen = () => {
                 <Text className="text-[10px] text-green-600 ml-1">{availability.delivery_message}</Text>
               </View>
             ) : null}
+
+            {item.stock_info?.low_stock && !isUnavailable && (
+              <Text className="text-xs text-orange-600 font-medium mt-0.5">
+                Only {item.stock_info.available_stock} left!
+              </Text>
+            )}
           </View>
 
           <View className="flex-row justify-between items-center">
@@ -602,7 +731,8 @@ const CartScreen = () => {
               })()}
             </View>
 
-            <View className="flex-row items-center bg-[#FF6B00] rounded-lg shadow-sm">
+            {/* Quantity Controls - Premium Orange Style */}
+            <View className="flex-row items-center bg-[#FF6B00] rounded-lg shadow-md h-8 min-w-[70px]">
               <TouchableOpacity
                 onPress={() => {
                   if (item.quantity > 1) {
@@ -611,25 +741,26 @@ const CartScreen = () => {
                     deleteFromCart(item);
                   }
                 }}
-                className="p-1 px-2"
+                className="flex-1 items-center justify-center h-full px-1"
               >
-                <Feather name="minus" size={16} color="white" />
+                <Text className="text-white text-lg font-light">−</Text>
               </TouchableOpacity>
 
-              <Text className="font-bold text-white px-2 text-sm">{item.quantity}</Text>
+              <Text className="font-bold text-white text-sm w-5 text-center">{item.quantity}</Text>
 
               <TouchableOpacity
                 onPress={() => {
-                  const maxStock = availability?.available ? availability?.available_stock || 999 : 999;
+                  const maxStock = item.stock_info?.available_stock ?? availability?.available_stock ?? 999;
                   if (item.quantity < maxStock) {
                     updateQuantity(item.id, item.quantity + 1);
                   } else {
                     Alert.alert("Max Stock", `You cannot add more than ${maxStock} of this item.`);
                   }
                 }}
-                className={`p-1 px-2 ${item.quantity >= (availability?.available ? availability?.available_stock || 999 : 999) ? "opacity-50" : ""}`}
+                className={`flex-1 items-center justify-center h-full px-1 ${item.quantity >= (item.stock_info?.available_stock ?? availability?.available_stock ?? 999) ? "opacity-50" : ""}`}
+                disabled={item.quantity >= (item.stock_info?.available_stock ?? availability?.available_stock ?? 999)}
               >
-                <Feather name="plus" size={16} color="white" />
+                <Text className="text-white text-lg font-light">+</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -647,7 +778,7 @@ const CartScreen = () => {
           </View>
           <Text className="text-2xl font-black text-gray-800 mb-2"> Your cart is empty </Text>
           <Text className="text-gray-500 text-center mb-8 px-4 leading-5">
-            Add items to it now to get them delivered to your doorstep at lightning speed!
+            Add items to get started
           </Text>
           <TouchableOpacity
             onPress={() => router.push("/")}
@@ -745,116 +876,182 @@ const CartScreen = () => {
 
             {/* Coupon Section */}
             {appliedCoupon ? (
-              <View className="mx-4 mt-4 bg-green-50 p-4 rounded-2xl border border-green-200 flex-row items-center justify-between">
-                <View className="flex-row items-center flex-1">
-                  <View className="bg-green-100 p-2 rounded-xl">
-                    <Feather name="check" size={20} color="#16a34a" />
+              <View className="mx-4 mt-4 bg-white border border-green-200 rounded-xl p-4 shadow-sm relative overflow-hidden group">
+                <View className="flex-row justify-between items-start mb-2">
+                  <View className="flex-row gap-3">
+                    <View className="w-10 h-10 rounded-lg bg-green-50 flex items-center justify-center border border-green-100">
+                      <Text className="text-lg font-bold text-green-600">%</Text>
+                    </View>
+                    <View>
+                      <View className="bg-green-50 px-2 py-0.5 rounded border border-green-100 mb-1 self-start">
+                        <Text className="text-green-700 text-xs font-bold tracking-wider">{appliedCoupon.code}</Text>
+                      </View>
+                      <Text className="text-sm font-bold text-gray-900 leading-tight">
+                        Saved ₹{couponDiscount.toFixed(2)} on this order
+                      </Text>
+                    </View>
                   </View>
-                  <View className="ml-3">
-                    <Text className="font-bold text-gray-800">{appliedCoupon.code}</Text>
-                    <Text className="text-xs text-green-600 font-bold">Saved ₹{couponDiscount.toFixed(2)}</Text>
-                  </View>
+                  <TouchableOpacity onPress={handleRemoveCoupon} className="px-2 py-1">
+                    <Text className="text-red-500 font-bold text-xs">REMOVE</Text>
+                  </TouchableOpacity>
                 </View>
-                <TouchableOpacity onPress={handleRemoveCoupon}>
-                  <Text className="text-red-500 font-bold text-xs uppercase">remove</Text>
-                </TouchableOpacity>
               </View>
             ) : (
               <TouchableOpacity
                 onPress={() => setShowCouponsModal(true)}
-                className="bg-white mx-4 mt-4 p-4 rounded-2xl flex-row items-center border border-dashed border-green-300 shadow-sm"
+                className="bg-white mx-4 mt-4 p-4 rounded-xl flex-row items-center justify-between border border-dashed border-[#FD5B00] shadow-sm"
               >
-                <View className="bg-green-100 p-2 rounded-xl">
-                  <MaterialIcons name="local-offer" size={20} color="#16a34a" />
+                <View className="flex-row items-center">
+                  <View className="bg-orange-50 p-2 rounded-xl border border-orange-100">
+                    <MaterialIcons name="local-offer" size={20} color="#FD5B00" />
+                  </View>
+                  <View className="ml-4">
+                    <Text className="font-bold text-gray-800 text-base">Apply Coupon</Text>
+                  </View>
                 </View>
-                <View className="ml-4 flex-1">
-                  <Text className="font-bold text-gray-800">Apply Coupon</Text>
-                  <Text className="text-xs text-gray-500">Save more on your order</Text>
-                </View>
-                <Text className="text-[#FF6B00] font-black mr-1">VIEW ALL</Text>
-                <Feather name="chevron-right" size={16} color="#FF6B00" />
+                <Feather name="chevron-right" size={20} color="#FD5B00" />
               </TouchableOpacity>
             )}
 
             {/* Bill Summary */}
-            <View className="bg-white mx-4 mt-4 rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-              <TouchableOpacity
-                onPress={() => setIsBillDetailsOpen(!isBillDetailsOpen)}
-                className="p-4 flex-row justify-between items-center bg-gray-50/50"
-              >
-                <View className="flex-row items-center">
-                  <Feather name="file-text" size={18} color="#4b5563" />
-                  <Text className="text-base font-bold text-gray-900 ml-2">Bill Summary</Text>
+            <View className="bg-white mx-4 mt-6 rounded-2xl border border-gray-100 shadow-sm overflow-hidden mb-2">
+              <Text className="text-base font-bold text-gray-900 p-4 pb-2 border-b border-gray-100">Bill Details</Text>
+
+              <View className="p-4 space-y-3">
+                <View className="flex-row justify-between items-center">
+                  <View className="flex-row items-center">
+                    <Feather name="file-text" size={14} color="#6b7280" />
+                    <Text className="text-gray-600 text-xs ml-2">Item Total</Text>
+                  </View>
+                  <View className="flex-row items-center">
+                    {originalItemTotal > itemTotal && (
+                      <Text className="text-xs text-gray-400 line-through mr-2">₹{originalItemTotal.toFixed(0)}</Text>
+                    )}
+                    <Text className="text-gray-900 font-medium text-sm">₹{itemTotal.toFixed(0)}</Text>
+                  </View>
                 </View>
-                <Feather name={isBillDetailsOpen ? "chevron-up" : "chevron-down"} size={20} color="#9ca3af" />
-              </TouchableOpacity>
 
-              {isBillDetailsOpen && (
-                <View className="p-4 pt-0 space-y-3">
-                  <View className="flex-row justify-between pt-3">
-                    <Text className="text-gray-500 text-sm">Item Total</Text>
-                    <View className="flex-row items-center">
-                      {originalItemTotal > itemTotal && (
-                        <Text className="text-xs text-gray-400 line-through mr-2">₹{originalItemTotal.toFixed(0)}</Text>
-                      )}
-                      <Text className="text-gray-900 font-bold text-sm">₹{itemTotal.toFixed(0)}</Text>
-                    </View>
+                {/* Delivery Charge */}
+                <View className="flex-row justify-between items-center">
+                  <View className="flex-row items-center">
+                    <Feather name="truck" size={14} color="#6b7280" />
+                    <Text className="text-gray-600 text-xs ml-2">Delivery Charge</Text>
+                    <TouchableOpacity onPress={() => handleOpenInfoModal('delivery')} className="ml-1">
+                      <Feather name="info" size={12} color="#9ca3af" />
+                    </TouchableOpacity>
                   </View>
-                  <View className="flex-row justify-between">
-                    <Text className="text-gray-500 text-sm">Delivery Charge</Text>
-                    <Text className={deliveryCharge === 0 ? "text-green-600 font-bold text-sm" : "text-gray-900 font-bold text-sm"}>
-                      {deliveryCharge === 0 ? "FREE" : `₹${deliveryCharge.toFixed(0)}`}
-                    </Text>
-                  </View>
-                  {charges.handling_charge > 0 && (
-                    <View className="flex-row justify-between">
-                      <Text className="text-gray-500 text-sm">Handling Charge</Text>
-                      <Text className="text-gray-900 font-bold text-sm">₹{charges.handling_charge.toFixed(0)}</Text>
-                    </View>
-                  )}
-                  {charges.surge_charge > 0 && (
-                    <View className="flex-row justify-between">
-                      <Text className="text-gray-500 text-sm">Surge Charge</Text>
-                      <Text className="text-gray-900 font-bold text-sm">₹{charges.surge_charge.toFixed(0)}</Text>
-                    </View>
-                  )}
-                  {charges.platform_charge > 0 && (
-                    <View className="flex-row justify-between">
-                      <Text className="text-gray-500 text-sm">Platform Fee</Text>
-                      <Text className="text-gray-900 font-bold text-sm">₹{charges.platform_charge.toFixed(0)}</Text>
-                    </View>
-                  )}
+                  <Text className={deliveryCharge === 0 ? "text-green-600 font-medium text-sm" : "text-gray-900 font-medium text-sm"}>
+                    {deliveryCharge === 0 ? "FREE" : `₹${deliveryCharge.toFixed(0)}`}
+                  </Text>
+                </View>
 
-                  {couponDiscount > 0 && (
-                    <View className="flex-row justify-between">
-                      <Text className="text-green-600 text-sm font-medium">Coupon Discount</Text>
-                      <Text className="text-green-600 font-bold text-sm">-₹{couponDiscount.toFixed(2)}</Text>
-                    </View>
-                  )}
-                  {milestoneDiscount > 0 && (
-                    <View className="flex-row justify-between">
-                      <Text className="text-green-600 text-sm font-medium">Delivery Discount</Text>
-                      <Text className="text-green-600 font-bold text-sm">-₹{milestoneDiscount.toFixed(2)}</Text>
-                    </View>
-                  )}
-                  <View className="h-[1px] bg-gray-100 my-2" />
+                {/* Handling Charge */}
+                {charges.handling_charge > 0 && (
                   <View className="flex-row justify-between items-center">
-                    <Text className="text-gray-900 font-black text-lg">To Pay</Text>
-                    <Text className="text-[#FF6B00] font-black text-xl">₹{totalToPay.toFixed(0)}</Text>
+                    <View className="flex-row items-center">
+                      <Feather name="package" size={14} color="#6b7280" />
+                      <Text className="text-gray-600 text-xs ml-2">Handling Charge</Text>
+                      <TouchableOpacity onPress={() => handleOpenInfoModal('handling')} className="ml-1">
+                        <Feather name="info" size={12} color="#9ca3af" />
+                      </TouchableOpacity>
+                    </View>
+                    <Text className="text-gray-900 font-medium text-sm">₹{charges.handling_charge.toFixed(0)}</Text>
                   </View>
-                </View>
-              )}
+                )}
+
+                {/* Surge Charge */}
+                {charges.surge_charge > 0 && (
+                  <View className="flex-row justify-between items-center">
+                    <View className="flex-row items-center">
+                      <Feather name="cloud-lightning" size={14} color="#6b7280" />
+                      <Text className="text-gray-600 text-xs ml-2">Surge / Late Night Fee</Text>
+                      <TouchableOpacity onPress={() => handleOpenInfoModal('surge')} className="ml-1">
+                        <Feather name="info" size={12} color="#9ca3af" />
+                      </TouchableOpacity>
+                    </View>
+                    <Text className="text-gray-900 font-medium text-sm">₹{charges.surge_charge.toFixed(0)}</Text>
+                  </View>
+                )}
+
+                {/* Platform Fee */}
+                {charges.platform_charge > 0 && (
+                  <View className="flex-row justify-between items-center">
+                    <View className="flex-row items-center">
+                      <Feather name="smartphone" size={14} color="#6b7280" />
+                      <Text className="text-gray-600 text-xs ml-2">Platform Fee</Text>
+                      <TouchableOpacity onPress={() => handleOpenInfoModal('platform')} className="ml-1">
+                        <Feather name="info" size={12} color="#9ca3af" />
+                      </TouchableOpacity>
+                    </View>
+                    <Text className="text-gray-900 font-medium text-sm">₹{charges.platform_charge.toFixed(0)}</Text>
+                  </View>
+                )}
+
+                {couponDiscount > 0 && (
+                  <View className="flex-row justify-between items-center mt-1">
+                    <Text className="text-green-600 text-xs font-medium">Coupon Discount</Text>
+                    <Text className="text-green-600 font-medium text-sm">-₹{couponDiscount.toFixed(0)}</Text>
+                  </View>
+                )}
+                {charges.discount_charge > 0 && (
+                  <View className="flex-row justify-between items-center mt-1">
+                    <Text className="text-green-600 text-xs font-medium">Extra Discount</Text>
+                    <Text className="text-green-600 font-medium text-sm">-₹{charges.discount_charge.toFixed(0)}</Text>
+                  </View>
+                )}
+                {milestoneDiscount > 0 && (
+                  <View className="flex-row justify-between items-center mt-1">
+                    <Text className="text-green-600 text-xs font-medium">Delivery Discount</Text>
+                    <Text className="text-green-600 font-medium text-sm">-₹{milestoneDiscount.toFixed(0)}</Text>
+                  </View>
+                )}
+              </View>
+
+              <View className="bg-gray-50 px-4 py-3 flex-row justify-between items-center border-t border-gray-100">
+                <Text className="text-gray-900 font-bold text-base">To Pay</Text>
+                <Text className="text-gray-900 font-black text-lg">₹{totalToPay.toFixed(0)}</Text>
+              </View>
             </View>
 
-            {/* Super Savings Highlight */}
+            {/* Savings Banner */}
             {totalSavings > 0 && (
-              <View className="mx-4 mt-4 bg-green-50 rounded-2xl p-4 border border-green-100 flex-row items-center">
-                <View className="bg-green-100 p-2 rounded-full">
-                  <Ionicons name="sparkles" size={18} color="#16a34a" />
+              <View className="mx-4 mt-2 bg-green-50 rounded-xl p-4 border border-green-100">
+                <View className="flex-row justify-between items-center mb-3">
+                  <Text className="text-sm font-bold text-gray-900">Super Savings on this order</Text>
+                  <View className="bg-green-600 px-3 py-1 rounded text-white font-bold text-xs">
+                    ₹{totalSavings.toFixed(0)}
+                  </View>
                 </View>
-                <Text className="flex-1 ml-3 text-sm font-bold text-green-800">
-                  You are saving ₹{totalSavings.toFixed(0)} on this order!
-                </Text>
+
+                <View className="bg-white rounded-lg p-3 space-y-2">
+                  {originalItemTotal > itemTotal && (
+                    <View className="flex-row justify-between items-center pb-2 border-b border-dashed border-gray-200">
+                      <View className="flex-row items-center">
+                        <Feather name="tag" size={14} color="#16a34a" />
+                        <Text className="text-xs font-medium text-gray-700 ml-2">Discount on MRP</Text>
+                      </View>
+                      <Text className="text-xs font-bold text-gray-900">₹{(originalItemTotal - itemTotal).toFixed(0)}</Text>
+                    </View>
+                  )}
+                  {deliveryCharge === 0 && (
+                    <View className="flex-row justify-between items-center pb-2 border-b border-dashed border-gray-200">
+                      <View className="flex-row items-center">
+                        <Feather name="shopping-bag" size={14} color="#16a34a" />
+                        <Text className="text-xs font-medium text-gray-700 ml-2">Delivery savings</Text>
+                      </View>
+                      <Text className="text-xs font-bold text-gray-900">₹{defaultDeliveryCharge.toFixed(0)}</Text>
+                    </View>
+                  )}
+                  {couponDiscount > 0 && (
+                    <View className="flex-row justify-between items-center">
+                      <View className="flex-row items-center">
+                        <Feather name="star" size={14} color="#16a34a" />
+                        <Text className="text-xs font-medium text-gray-700 ml-2">Coupon Savings</Text>
+                      </View>
+                      <Text className="text-xs font-bold text-gray-900">₹{couponDiscount.toFixed(0)}</Text>
+                    </View>
+                  )}
+                </View>
               </View>
             )}
 
@@ -1041,40 +1238,142 @@ const CartScreen = () => {
         loading={isSavingAddress}
       />
 
-      {/* Checkout Button */}
-      {cartItems.length > 0 && (
-        <View className="absolute bottom-0 w-full bg-white border-t border-gray-100 px-4 pt-4 pb-8 shadow-2xl">
-          <View className="flex-row items-center justify-between mb-4">
-            <View className="flex-row items-center">
-              <View className="bg-blue-50 p-2 rounded-lg">
-                <Feather name="user" size={16} color="#3B82F6" />
+      {/* Unavailable Items Disclaimer Modal */}
+      <Modal
+        visible={showDisclaimerModal}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => setShowDisclaimerModal(false)}
+      >
+        <View className="flex-1 bg-black/60 justify-center items-center p-4">
+          <View className="bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl">
+            <View className="p-5">
+              <View className="flex-row justify-between items-center mb-4">
+                <View className="flex-row items-center">
+                  <Feather name="alert-circle" size={20} color="#f59e0b" />
+                  <Text className="text-lg font-bold text-gray-900 ml-2">Some Items Unavailable</Text>
+                </View>
+                <TouchableOpacity onPress={() => setShowDisclaimerModal(false)} className="p-1">
+                  <Feather name="x" size={20} color="#6b7280" />
+                </TouchableOpacity>
               </View>
-              <Text className="ml-2 text-xs font-bold text-gray-600">Ordering for <Text className="text-[#FF6B00]">{currentUser?.user_metadata?.full_name || "Customer"}</Text></Text>
+
+              <Text className="text-sm text-gray-600 mb-4">
+                The following item(s) are <Text className="font-bold text-red-600">not available</Text> for delivery at your selected address:
+              </Text>
+
+              <ScrollView className="max-h-40 mb-4" showsVerticalScrollIndicator={false}>
+                {unavailableItems.map((item) => {
+                  const key = item.variant_id ? `${item.id}-${item.variant_id}` : String(item.id);
+                  const availability = availabilityData[key];
+                  return (
+                    <View key={key} className="flex-row items-center p-2 mb-2 bg-red-50 border border-red-100 rounded-lg">
+                      <Image
+                        source={{ uri: item.image || "https://example.com/placeholder.png" }}
+                        className="w-10 h-10 rounded-lg bg-white"
+                      />
+                      <View className="flex-1 ml-3 justify-center">
+                        <Text className="text-sm font-bold text-gray-800" numberOfLines={1}>{item.name}</Text>
+                        <Text className="text-xs text-red-500">{availability?.delivery_message || "Out of stock"}</Text>
+                      </View>
+                      <Text className="text-xs font-bold text-gray-500 ml-2">x{item.quantity}</Text>
+                    </View>
+                  );
+                })}
+              </ScrollView>
+
+              <View className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-5">
+                <Text className="text-xs text-amber-800 leading-tight">
+                  You can <Text className="font-bold">change your delivery address</Text> to check availability elsewhere, or <Text className="font-bold">proceed with only the available items</Text>. The unavailable items will remain in your cart.
+                </Text>
+              </View>
+
+              <View className="gap-2">
+                <TouchableOpacity
+                  onPress={handleDisclaimerProceed}
+                  className="w-full bg-[#FD5B00] py-3 rounded-xl items-center"
+                >
+                  <Text className="text-white font-bold">
+                    Proceed with {availableCartItems.length} available item(s)
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={handleDisclaimerChangeAddress}
+                  className="w-full bg-white border border-gray-300 py-3 rounded-xl items-center"
+                >
+                  <Text className="text-gray-700 font-bold">Change Delivery Address</Text>
+                </TouchableOpacity>
+              </View>
             </View>
-            <TouchableOpacity>
-              <Text className="text-[#FF6B00] font-black text-xs">CHANGE</Text>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Checkout Section Footer */}
+      {cartItems.length > 0 && (
+        <View className="absolute bottom-0 w-full bg-white border-t border-gray-100 shadow-2xl pb-6">
+
+          {/* Ordering For Strip */}
+          <View className="mx-4 mt-3 bg-white rounded-xl p-3 flex-row items-center justify-between shadow-sm border border-gray-100">
+            <Text className="text-gray-900 font-semibold text-xs flex-1 mr-2" numberOfLines={1}>
+              Ordering for <Text className="text-[#FD5B00]">{currentUser?.user_metadata?.full_name || "Customer"}</Text>, {currentUser?.phone || ""}
+            </Text>
+            <TouchableOpacity onPress={() => {/* Handle Edit Receiver Info */ }}>
+              <Text className="text-[#FD5B00] font-bold text-xs">Edit</Text>
             </TouchableOpacity>
           </View>
 
-          <TouchableOpacity
-            className={`h-16 rounded-2xl flex-row items-center justify-between px-6 shadow-xl active:scale-95 ${(!selectedAddress && !pincode) || allItemsUnavailable || isPlacingOrder ? 'bg-gray-400' : 'bg-[#FF6B00]'}`}
-            disabled={(!selectedAddress && !pincode) || allItemsUnavailable || isPlacingOrder}
-            onPress={handlePlaceOrder}
-          >
-            <View>
-              <Text className="text-white font-black text-lg">₹{totalToPay.toFixed(0)}</Text>
-              <Text className="text-white/80 text-[10px] uppercase font-bold tracking-widest">Grand Total</Text>
-            </View>
-            <View className="flex-row items-center">
-              {isPlacingOrder ? (
-                <ActivityIndicator color="white" size="small" className="mr-2" />
-              ) : null}
-              <Text className="text-white font-black text-base mr-2">
-                {(!selectedAddress && !pincode) ? "SELECT LOCATION" : allItemsUnavailable ? "UNAVAILABLE" : isPlacingOrder ? "PLACING ORDER..." : "PLACE ORDER"}
-              </Text>
-              <Feather name="arrow-right" size={20} color="white" />
-            </View>
-          </TouchableOpacity>
+          {/* Delivery Address & Pay Button */}
+          <View className="px-4 pt-4 pb-2">
+            {selectedAddress && (
+              <TouchableOpacity
+                className="mb-3 flex-row items-center cursor-pointer"
+                onPress={() => setShowAddressModal(true)}
+              >
+                <View className="p-2 bg-gray-100 rounded-lg">
+                  <Feather name="map-pin" size={18} color="#4b5563" />
+                </View>
+                <View className="flex-1 ml-3">
+                  <View className="flex-row items-center">
+                    <Text className="font-bold text-gray-900 text-sm">Delivering to home</Text>
+                    <Feather name="chevron-down" size={14} color="#6b7280" className="ml-1" />
+                  </View>
+                  <Text className="text-xs text-gray-500" numberOfLines={1}>
+                    {selectedAddress.address_line_1 || selectedAddress.street_address}, {selectedAddress.city}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            )}
+
+            {!selectedAddress && !pincode ? (
+              <TouchableOpacity
+                className="w-full bg-[#FD5B00] py-4 rounded-xl flex-row items-center justify-center shadow-lg"
+                onPress={() => setShowAddressModal(true)}
+              >
+                <Text className="text-white font-bold text-base">Add Address to proceed</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                className={`w-full py-4 rounded-xl flex-row items-center justify-center shadow-lg ${checkingAvailability || allItemsUnavailable || isPlacingOrder ? 'bg-orange-300 opacity-80' : 'bg-[#FD5B00] shadow-orange-200'
+                  }`}
+                disabled={checkingAvailability || allItemsUnavailable || isPlacingOrder}
+                onPress={handlePlaceOrder}
+              >
+                {checkingAvailability || isPlacingOrder ? (
+                  <ActivityIndicator color="white" size="small" className="mr-2" />
+                ) : null}
+                <Text className="text-white font-bold text-lg">
+                  {checkingAvailability
+                    ? "Checking Stock..."
+                    : allItemsUnavailable
+                      ? "UNAVAILABLE"
+                      : isPlacingOrder
+                        ? "Placing Order..."
+                        : `Click to Pay ₹${totalToPay.toFixed(0)}`}
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
       )}
 
