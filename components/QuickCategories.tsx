@@ -1,17 +1,16 @@
 import {
   View,
   Text,
-  ScrollView,
   TouchableOpacity,
   Image,
   ActivityIndicator,
+  FlatList,
 } from "react-native";
 import React, { useEffect, useState } from "react";
-import { useRouter } from "expo-router";
+import { router } from "expo-router";
 const QuickCategories = () => {
   const [categories, setCategories] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const router = useRouter();
 
   useEffect(() => {
     loadCategories();
@@ -38,56 +37,55 @@ const QuickCategories = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <View className="h-24 justify-center">
-        <ActivityIndicator color="#FD5B00" />
-      </View>
-    );
-  }
+  // if (loading) {
+  //   return (
+  //     <View className="h-[90px] justify-center w-full bg-white mt-4 border-t border-b border-gray-100">
+  //       <ActivityIndicator color="#FD5B00" />
+  //     </View>
+  //   );
+  // }
 
-  if (categories.length === 0) return null;
+  if (!categories || categories.length === 0) return null;
+
+  const renderItem = ({ item, index }: { item: any; index: number }) => (
+    <TouchableOpacity
+      className="mr-4 items-center w-[74px]"
+      onPress={() => router.push(`/category/${item.id}` as any)}
+    >
+      <View className="w-[70px] h-[70px] rounded-full bg-gray-50 border border-gray-100 shadow-[0_2px_8px_-4px_rgba(0,0,0,0.1)] items-center justify-center overflow-hidden mb-2">
+        {item.image_url ? (
+          <Image
+            source={{ uri: item.image_url }}
+            style={{ width: "100%", height: "100%" }}
+            resizeMode="contain"
+          />
+        ) : (
+          <View className="items-center justify-center h-full w-full bg-gray-50">
+            <Text className="text-2xl">📦</Text>
+          </View>
+        )}
+      </View>
+      <Text
+        className="text-[11px] font-black text-center text-gray-800 leading-[14px]"
+        numberOfLines={2}
+      >
+        {item.name}
+      </Text>
+    </TouchableOpacity>
+  );
 
   return (
-    <View className="bg-[#F9F4ED] py-3 mb-2">
-      <ScrollView
+    <View className="bg-white pt-4 pb-5 mb-2 mt-2 shadow-sm">
+      <FlatList
+        data={categories}
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: 16 }}
-      >
-        {categories.map((item, index) => (
-          <TouchableOpacity
-            key={item.id || index}
-            className="mr-4 items-center w-[76px]"
-            onPress={() =>
-              router.push({
-                pathname: "/categories",
-                params: { categoryId: item.id },
-              })
-            }
-          >
-            <View className="w-[69px] h-[69px] rounded-lg items-center justify-center overflow-hidden mb-1">
-              {item.image_url ? (
-                <Image
-                  source={{ uri: item.image_url }}
-                  style={{ width: "100%", height: "100%" }}
-                  resizeMode="cover"
-                />
-              ) : (
-                <View className="items-center justify-center h-full w-full bg-gray-100">
-                  <Text className="text-xl">📦</Text>
-                </View>
-              )}
-            </View>
-            <Text
-              className="text-[10px] font-bold text-center text-gray-800 leading-3"
-              numberOfLines={2}
-            >
-              {item.name}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+        nestedScrollEnabled={true}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 4 }}
+        keyExtractor={(item, index) => item.id?.toString() || index.toString()}
+        renderItem={renderItem}
+      />
     </View>
   );
 };

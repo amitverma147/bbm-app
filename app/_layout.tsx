@@ -93,6 +93,9 @@ export default function RootLayout() {
                     <Stack.Screen name="wallet" options={{ headerShown: false }} />
                     <Stack.Screen name="wishlist" options={{ headerShown: false }} />
                     <Stack.Screen name="addresses" options={{ headerShown: false }} />
+                    <Stack.Screen name="eato" options={{ headerShown: false }} />
+                    <Stack.Screen name="star" options={{ headerShown: false }} />
+                    <Stack.Screen name="bazaar" options={{ headerShown: false }} />
                     <Stack.Screen name="+not-found" />
                   </Stack>
                   <ActiveOrderBar />

@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useRouter, usePathname } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
   ScrollView,
@@ -54,6 +54,7 @@ const QUICK_ACCESS = [
 
 const Header = () => {
   const router = useRouter();
+  const pathname = usePathname();
   const { getCartTotal } = useCart();
   const {
     location,
@@ -192,37 +193,51 @@ const Header = () => {
       <View className="bg-white pb-4 shadow-sm border-b border-gray-100 rounded-b-[24px] z-50">
         {/* Quick Tabs - Tab View */}
         <View className="flex-row items-center justify-between px-4 pt-3 pb-2 w-full">
-          {QUICK_ACCESS.map((item) => (
-            <TouchableOpacity
-              key={item.id}
-              className={`flex-1 mx-1 flex-col items-center justify-center py-2.5 rounded-[14px] border ${item.active
-                ? "bg-orange-50 border-orange-300"
-                : "bg-white border-gray-200"
-                } shadow-sm`}
-            >
-              <Ionicons
-                name={
-                  item.title === "QWIK"
-                    ? "flash"
-                    : item.title === "Eato"
-                      ? "restaurant"
-                      : item.title === "Star"
-                        ? "star"
-                        : "grid"
-                }
-                size={22}
-                color={item.active ? "#EA580C" : item.color}
-                style={{ marginBottom: 4 }}
-              />
-              <Text
-                className={`text-[11px] font-black ${item.active ? "text-orange-700" : "text-gray-700"
-                  }`}
-                numberOfLines={1}
+          {QUICK_ACCESS.map((item) => {
+            const isActive =
+              (pathname === "/eato" && item.title === "Eato") ||
+              (pathname === "/star" && item.title === "Star") ||
+              (pathname === "/bazaar" && item.title === "Bazaar") ||
+              (pathname !== "/eato" && pathname !== "/star" && pathname !== "/bazaar" && item.title === "QWIK");
+
+            return (
+              <TouchableOpacity
+                key={item.id}
+                onPress={() => {
+                  if (item.title === "QWIK") router.push("/");
+                  else if (item.title === "Eato") router.push("/eato" as any);
+                  else if (item.title === "Star") router.push("/star" as any);
+                  else if (item.title === "Bazaar") router.push("/bazaar" as any);
+                }}
+                className={`flex-1 mx-1 flex-col items-center justify-center py-2.5 rounded-[14px] border ${isActive
+                  ? "bg-orange-50 border-orange-300"
+                  : "bg-white border-gray-200"
+                  } shadow-sm`}
               >
-                {item.title}
-              </Text>
-            </TouchableOpacity>
-          ))}
+                <Ionicons
+                  name={
+                    item.title === "QWIK"
+                      ? "flash"
+                      : item.title === "Eato"
+                        ? "restaurant"
+                        : item.title === "Star"
+                          ? "star"
+                          : "grid"
+                  }
+                  size={22}
+                  color={isActive ? "#EA580C" : item.color}
+                  style={{ marginBottom: 4 }}
+                />
+                <Text
+                  className={`text-[11px] font-black ${isActive ? "text-orange-700" : "text-gray-700"
+                    }`}
+                  numberOfLines={1}
+                >
+                  {item.title}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
         {/* Middle Row: Brand & Location + Actions */}
