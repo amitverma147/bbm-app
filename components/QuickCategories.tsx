@@ -1,13 +1,14 @@
 import {
   View,
   Text,
-  TouchableOpacity,
   Image,
   ActivityIndicator,
   FlatList,
+  Pressable,
 } from "react-native";
 import React, { useEffect, useState } from "react";
 import { router } from "expo-router";
+
 const QuickCategories = () => {
   const [categories, setCategories] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -22,6 +23,12 @@ const QuickCategories = () => {
         "https://api.amitdev.tech/api/categories/section/price_zone/subcategories",
       );
       const data = await response.json();
+
+      console.log("QuickCategories Debug:", {
+        success: data?.success,
+        count: data?.subcategories?.length
+      });
+
       if (
         data &&
         data.success &&
@@ -37,22 +44,22 @@ const QuickCategories = () => {
     }
   };
 
-  // if (loading) {
-  //   return (
-  //     <View className="h-[90px] justify-center w-full bg-white mt-4 border-t border-b border-gray-100">
-  //       <ActivityIndicator color="#FD5B00" />
-  //     </View>
-  //   );
-  // }
+  if (loading) {
+    return (
+      <View className="h-[100px] justify-center w-full bg-white mt-2">
+        <ActivityIndicator color="#FD5B00" />
+      </View>
+    );
+  }
 
   if (!categories || categories.length === 0) return null;
 
-  const renderItem = ({ item, index }: { item: any; index: number }) => (
-    <TouchableOpacity
+  const renderItem = ({ item }: { item: any }) => (
+    <Pressable
       className="mr-4 items-center w-[74px]"
       onPress={() => router.push(`/category/${item.id}` as any)}
     >
-      <View className="w-[70px] h-[70px] rounded-full bg-gray-50 border border-gray-100 shadow-[0_2px_8px_-4px_rgba(0,0,0,0.1)] items-center justify-center overflow-hidden mb-2">
+      <View className="w-[70px] h-[70px] rounded-full bg-gray-50 border border-gray-100 shadow-sm items-center justify-center overflow-hidden mb-2">
         {item.image_url ? (
           <Image
             source={{ uri: item.image_url }}
@@ -71,20 +78,26 @@ const QuickCategories = () => {
       >
         {item.name}
       </Text>
-    </TouchableOpacity>
+    </Pressable>
   );
 
   return (
-    <View className="bg-white pt-4 pb-5 mb-2 mt-2 shadow-sm">
+    <View
+      className="bg-white py-2 mb-2"
+      style={{ height: 130 }}
+      onStartShouldSetResponder={() => true}
+    >
       <FlatList
         data={categories}
         horizontal
-        showsHorizontalScrollIndicator={false}
-        nestedScrollEnabled={true}
-        keyboardShouldPersistTaps="handled"
-        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 4 }}
+        showsHorizontalScrollIndicator={true} // Temporarily enable to see scroll position
         keyExtractor={(item, index) => item.id?.toString() || index.toString()}
         renderItem={renderItem}
+        contentContainerStyle={{ paddingHorizontal: 16 }}
+        nestedScrollEnabled={true}
+        scrollEnabled={true}
+        onTouchStart={() => console.log("QuickCategories: Touch Started")}
+        onTouchEnd={() => console.log("QuickCategories: Touch Ended")}
       />
     </View>
   );
