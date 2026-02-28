@@ -1,15 +1,37 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useVideoPlayer, VideoView } from "expo-video";
 import React, { useEffect, useState } from "react";
 import { Dimensions, Image, Text, TouchableOpacity, View } from "react-native";
 import YoutubePlayer from "react-native-youtube-iframe";
 import { API_BASE_URL } from "../constants/Config";
 
+// Try to load expo-video; it requires a native rebuild to work
+let useVideoPlayer: any = null;
+let VideoView: any = null;
+let expoVideoAvailable = false;
+try {
+  const expoVideo = require("expo-video");
+  useVideoPlayer = expoVideo.useVideoPlayer;
+  VideoView = expoVideo.VideoView;
+  expoVideoAvailable = true;
+} catch {
+  // expo-video native module not available (needs native rebuild)
+}
+
 const { width } = Dimensions.get("window");
 
 // Separate component so useVideoPlayer hook is always called unconditionally
 const DirectVideoPlayer = ({ uri }: { uri: string }) => {
-  const player = useVideoPlayer(uri, (p) => {
+  if (!expoVideoAvailable) {
+    // Fallback: show a placeholder when native module is missing
+    return (
+      <View style={{ width: "100%", height: "100%", backgroundColor: "#1f2937", alignItems: "center", justifyContent: "center" }}>
+        <Ionicons name="play-circle-outline" size={48} color="#9ca3af" />
+        <Text style={{ color: "#9ca3af", fontSize: 12, marginTop: 8 }}>Video requires app rebuild</Text>
+      </View>
+    );
+  }
+
+  const player = useVideoPlayer(uri, (p: any) => {
     p.loop = true;
     p.muted = true;
     p.play();
