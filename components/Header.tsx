@@ -1,5 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, usePathname } from "expo-router";
+import { Image as ExpoImage } from "expo-image";
+import LottieView from "lottie-react-native";
 import React, { useEffect, useState } from "react";
 import {
   ScrollView,
@@ -11,7 +13,6 @@ import {
   Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useCart } from "../contexts/CartContext";
 import { useLocation } from "../contexts/LocationContext";
 import { useAuth } from "../contexts/AuthContext";
 import { searchAll } from "../services/searchService";
@@ -20,6 +21,7 @@ import AddressDetailsFormModal from "./AddressDetailsFormModal";
 import AddressListModal from "./AddressListModal";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { API_BASE_URL } from "../constants/Config";
+const logoImage = require('../assets/BigBestMart.gif');
 
 const QUICK_ACCESS = [
   {
@@ -55,7 +57,6 @@ const QUICK_ACCESS = [
 const Header = () => {
   const router = useRouter();
   const pathname = usePathname();
-  const { getCartTotal } = useCart();
   const {
     location,
     pincode,
@@ -65,8 +66,6 @@ const Header = () => {
   } = useLocation();
   const { currentUser } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
-
-  const cartTotal = getCartTotal();
 
   // -- Location Modal State --
   const [showLocationPicker, setShowLocationPicker] = useState(false);
@@ -214,20 +213,28 @@ const Header = () => {
                   : "bg-white border-gray-200"
                   } shadow-sm`}
               >
-                <Ionicons
-                  name={
-                    item.title === "QWIK"
-                      ? "flash"
-                      : item.title === "Eato"
+                {item.title === "QWIK" ? (
+                  <LottieView
+                    source={{ uri: 'https://lottie.host/3c3cae43-2f5a-4ff4-8e94-695b04f65270/YlL23dpNak.lottie' }}
+                    autoPlay
+                    loop
+                    speed={3}
+                    style={{ width: 32, height: 32, marginBottom: 2 }}
+                  />
+                ) : (
+                  <Ionicons
+                    name={
+                      item.title === "Eato"
                         ? "restaurant"
                         : item.title === "Star"
                           ? "star"
                           : "grid"
-                  }
-                  size={22}
-                  color={isActive ? "#EA580C" : item.color}
-                  style={{ marginBottom: 4 }}
-                />
+                    }
+                    size={22}
+                    color={isActive ? "#EA580C" : item.color}
+                    style={{ marginBottom: 4 }}
+                  />
+                )}
                 <Text
                   className={`text-[11px] font-black ${isActive ? "text-orange-700" : "text-gray-700"
                     }`}
@@ -247,12 +254,15 @@ const Header = () => {
             className="flex-1 mr-4"
             onPress={handleLocationPress}
           >
-            <View className="flex-row items-center mb-1">
-              <View className="bg-orange-600 rounded-lg p-1 mr-2 shadow-sm">
-                <Ionicons name="cart" size={14} color="white" />
-              </View>
-              <Text className="text-xl font-black text-gray-900 tracking-tight">
-                BigBest<Text className="text-orange-600">Mart</Text>
+            <View className="flex-row items-center ">
+              <ExpoImage
+                source={logoImage}
+                style={{ width: 60, height: 60 }}
+                contentFit="cover"
+                autoplay={true}
+              />
+              <Text style={{ fontFamily: 'Montserrat_800ExtraBold', fontSize: 18, color: '#111827', letterSpacing: -0.5, marginLeft: 2 }}>
+                BIG<Text style={{ color: '#EA580C' }}>BEST</Text>MART
               </Text>
             </View>
 
@@ -270,32 +280,6 @@ const Header = () => {
 
           {/* Right: Actions */}
           <View className="flex-row items-start gap-4">
-            {/* Wallet / Cart */}
-            <TouchableOpacity
-              onPress={() => router.push("/cart")}
-              className="items-center"
-            >
-              <View className="relative">
-                <View className="bg-gray-50 w-10 h-10 rounded-full items-center justify-center border border-gray-100 shadow-sm">
-                  <Ionicons
-                    name="bag-handle-outline"
-                    size={20}
-                    color="#1F2937"
-                  />
-                </View>
-                {cartTotal > 0 && (
-                  <View className="absolute -top-1 -right-1 bg-orange-600 w-4 h-4 rounded-full items-center justify-center border-[1.5px] border-white">
-                    <Text className="text-[8px] font-bold text-white">
-                      {cartTotal}
-                    </Text>
-                  </View>
-                )}
-              </View>
-              <Text className="text-[10px] font-bold text-gray-900 mt-1">
-                CART
-              </Text>
-            </TouchableOpacity>
-
             {/* Profile */}
             <TouchableOpacity
               onPress={() => router.push("/profile")}
