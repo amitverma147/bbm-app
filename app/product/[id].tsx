@@ -1,24 +1,22 @@
-import { Ionicons, MaterialIcons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
-import { useLocalSearchParams, useRouter, Stack } from "expo-router";
+import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Animated,
+  Alert,
   Dimensions,
-  Modal,
-  SafeAreaView,
   ScrollView,
   Text,
   TouchableOpacity,
-  View,
-  Alert,
+  View
 } from "react-native";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import YoutubePlayer from "react-native-youtube-iframe";
 
-import { useCart } from "../../contexts/CartContext";
-import { API_BASE_URL } from "../../constants/Config";
 import ProductCard from "../../components/ProductCard";
+import { API_BASE_URL } from "../../constants/Config";
+import { useCart } from "../../contexts/CartContext";
 
 const { width, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
@@ -33,6 +31,7 @@ export default function SingleProductPage() {
   const router = useRouter();
   const { id: productId } = useLocalSearchParams();
   const { addToCart, cartItems, removeFromCart } = useCart();
+  const insets = useSafeAreaInsets();
 
   const [product, setProduct] = useState<any>(null);
   const [variants, setVariants] = useState<any[]>([]);
@@ -357,12 +356,12 @@ export default function SingleProductPage() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
+    <SafeAreaView className="flex-1 bg-white" edges={['top', 'left', 'right']}>
       <Stack.Screen options={{ headerShown: false }} />
       <ScrollView
         className="flex-1"
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 120 }}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
       >
         {renderGallery()}
 
@@ -693,7 +692,10 @@ export default function SingleProductPage() {
       </ScrollView>
 
       {/* Floating WhatsApp Button */}
-      <TouchableOpacity className="absolute bottom-24 right-4 w-12 h-12 rounded-full bg-[#25D366] items-center justify-center shadow-2xl z-40 elevation-4">
+      <TouchableOpacity
+        style={{ position: "absolute", bottom: insets.bottom + 80, right: 16 }}
+        className="w-12 h-12 rounded-full bg-[#25D366] items-center justify-center shadow-2xl z-40 elevation-4"
+      >
         <Ionicons
           name="logo-whatsapp"
           size={28}
@@ -703,86 +705,127 @@ export default function SingleProductPage() {
       </TouchableOpacity>
 
       {/* Sticky Bottom Actions */}
-      <View className="absolute bottom-0 left-0 w-full bg-white border-t border-gray-200 px-4 py-3 pb-8 flex-row items-center shadow-2xl z-50">
-        <View className="flex-1 right-3">
-          <Text className="text-xs text-gray-500 font-bold mb-0.5">
-            Total Price
-          </Text>
-          <Text className="text-xl font-black text-gray-900">
-            ₹{parseFloat(currentPrice).toFixed(2)}
-          </Text>
-          {currentOldPrice > currentPrice && (
-            <Text className="text-[10px] text-green-600 font-bold">
-              {currentDiscountPercentage}% OFF
-            </Text>
-          )}
-        </View>
+      <View
+        style={{ paddingBottom: insets.bottom + 8 }}
+        className="absolute bottom-0 left-0 w-full bg-white px-4 pt-3 z-50"
+        // subtle top shadow
+      >
+        {/* thin top shadow line */}
+        <View style={{ height: 1, backgroundColor: "#f0f0f0", marginBottom: 10 }} />
 
-        <View
-          className="flex-row gap-3 flex-1 ml-auto shrink-0 relative pr-0"
-          style={{ width: "55%" }}
-        >
-          {!inStock ? (
-            <TouchableOpacity
-              disabled
-              className="flex-1 h-12 bg-gray-200 rounded-xl items-center justify-center"
-            >
-              <Text className="font-bold text-gray-500 uppercase text-xs">
-                Out of Stock
+        <View className="flex-row items-center">
+          {/* ── Left: Price block ── */}
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 11, color: "#9ca3af", fontWeight: "600", marginBottom: 1 }}>
+              Total Price
+            </Text>
+            <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 6 }}>
+              <Text style={{ fontSize: 22, fontWeight: "900", color: "#111827", letterSpacing: -0.5 }}>
+                ₹{parseFloat(currentPrice).toFixed(0)}
               </Text>
-            </TouchableOpacity>
-          ) : quantityInCart > 0 ? (
-            <>
-              <View className="h-12 border border-gray-300 bg-gray-50 rounded-xl flex-row items-center justify-between px-2 flex-1 relative">
-                <TouchableOpacity
-                  onPress={handleRemoveFromCart}
-                  className="w-8 h-full items-center justify-center"
-                >
-                  <Text className="text-lg font-bold text-gray-600 shadow-sm">
-                    -
-                  </Text>
-                </TouchableOpacity>
-                <Text className="text-base font-bold text-gray-900">
-                  {quantityInCart}
+              {currentOldPrice > currentPrice && (
+                <Text style={{ fontSize: 13, color: "#9ca3af", textDecorationLine: "line-through", marginBottom: 3 }}>
+                  ₹{parseFloat(currentOldPrice).toFixed(0)}
                 </Text>
+              )}
+            </View>
+            {currentOldPrice > currentPrice && (
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 1 }}>
+                <View style={{ backgroundColor: "#dcfce7", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                  <Text style={{ fontSize: 10, color: "#16a34a", fontWeight: "800" }}>
+                    {currentDiscountPercentage}% OFF
+                  </Text>
+                </View>
+                <Text style={{ fontSize: 10, color: "#9ca3af" }}>incl. taxes</Text>
+              </View>
+            )}
+          </View>
+
+          {/* ── Right: Action buttons ── */}
+          <View style={{ flex: 1.2, flexDirection: "row", gap: 8 }}>
+            {!inStock ? (
+              /* Out of Stock */
+              <View style={{
+                flex: 1, height: 52, borderRadius: 14,
+                backgroundColor: "#f3f4f6", borderWidth: 1, borderColor: "#e5e7eb",
+                alignItems: "center", justifyContent: "center",
+              }}>
+                
+                <Text style={{ fontSize: 11, fontWeight: "700", color: "#9ca3af", marginTop: 2, letterSpacing: 0.3 }}>
+                  Out of Stock
+                </Text>
+              </View>
+            ) : quantityInCart > 0 ? (
+              <>
+                {/* Qty stepper */}
+                <View style={{
+                  flex: 1, height: 52, borderRadius: 14,
+                  borderWidth: 1.5, borderColor: "#FF6B00",
+                  flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+                  paddingHorizontal: 4, backgroundColor: "#fff8f5",
+                }}>
+                  <TouchableOpacity
+                    onPress={handleRemoveFromCart}
+                    style={{ width: 36, height: "100%", alignItems: "center", justifyContent: "center" }}
+                  >
+                    <Text style={{ fontSize: 22, fontWeight: "700", color: "#FF6B00", lineHeight: 26 }}>−</Text>
+                  </TouchableOpacity>
+                  <Text style={{ fontSize: 16, fontWeight: "800", color: "#111827", minWidth: 20, textAlign: "center" }}>
+                    {quantityInCart}
+                  </Text>
+                  <TouchableOpacity
+                    onPress={handleAddToCart}
+                    style={{ width: 36, height: "100%", alignItems: "center", justifyContent: "center" }}
+                  >
+                    <Text style={{ fontSize: 22, fontWeight: "700", color: "#FF6B00", lineHeight: 26 }}>+</Text>
+                  </TouchableOpacity>
+                </View>
+                {/* Buy Now */}
+                <TouchableOpacity
+                  onPress={handleBuyNow}
+                  style={{
+                    flex: 1, height: 52, borderRadius: 14,
+                    backgroundColor: "#FF6B00",
+                    alignItems: "center", justifyContent: "center",
+                    shadowColor: "#FF6B00", shadowOpacity: 0.35, shadowRadius: 8, shadowOffset: { width: 0, height: 4 },
+                    elevation: 5,
+                  }}
+                >
+                  <Text style={{ color: "#fff", fontWeight: "800", fontSize: 13, letterSpacing: 0.3 }}>Buy Now</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <>
+                {/* Add to Cart */}
                 <TouchableOpacity
                   onPress={handleAddToCart}
-                  className="w-8 h-full items-center justify-center"
+                  style={{
+                    flex: 1, height: 52, borderRadius: 14,
+                    borderWidth: 1.5, borderColor: "#FF6B00",
+                    backgroundColor: "#fff8f5",
+                    alignItems: "center", justifyContent: "center", gap: 2,
+                  }}
                 >
-                  <Text className="text-lg font-bold text-green-600 shadow-sm">
-                    +
-                  </Text>
+                  <Ionicons name="bag-add-outline" size={15} color="#FF6B00" />
+                  <Text style={{ color: "#FF6B00", fontWeight: "800", fontSize: 11, letterSpacing: 0.3 }}>Add to Cart</Text>
                 </TouchableOpacity>
-              </View>
-              <TouchableOpacity
-                onPress={handleBuyNow}
-                className="h-12 bg-[#FF6B00] rounded-xl items-center justify-center shadow-md flex-1 relative active:scale-95"
-              >
-                <Text className="text-white font-bold text-xs uppercase text-shadow-sm">
-                  Buy Now
-                </Text>
-              </TouchableOpacity>
-            </>
-          ) : (
-            <>
-              <TouchableOpacity
-                onPress={handleAddToCart}
-                className="h-12 border border-[#FF6B00] bg-orange-50 rounded-xl items-center justify-center flex-1 active:scale-95"
-              >
-                <Text className="text-[#FF6B00] font-bold text-xs uppercase">
-                  Add to Cart
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={handleBuyNow}
-                className="h-12 bg-[#FF6B00] shadow-md rounded-xl items-center justify-center flex-1 active:scale-95"
-              >
-                <Text className="text-white font-bold text-xs uppercase">
-                  Buy Now
-                </Text>
-              </TouchableOpacity>
-            </>
-          )}
+                {/* Buy Now */}
+                <TouchableOpacity
+                  onPress={handleBuyNow}
+                  style={{
+                    flex: 1, height: 52, borderRadius: 14,
+                    backgroundColor: "#FF6B00",
+                    alignItems: "center", justifyContent: "center", gap: 2,
+                    shadowColor: "#FF6B00", shadowOpacity: 0.35, shadowRadius: 8, shadowOffset: { width: 0, height: 4 },
+                    elevation: 5,
+                  }}
+                >
+                  <Ionicons name="flash" size={14} color="#fff" />
+                  <Text style={{ color: "#fff", fontWeight: "800", fontSize: 11, letterSpacing: 0.3 }}>Buy Now</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
         </View>
       </View>
     </SafeAreaView>

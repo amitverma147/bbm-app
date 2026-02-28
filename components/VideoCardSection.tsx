@@ -1,11 +1,28 @@
 import { Ionicons } from "@expo/vector-icons";
-import { ResizeMode, Video } from "expo-av";
+import { useVideoPlayer, VideoView } from "expo-video";
 import React, { useEffect, useState } from "react";
 import { Dimensions, Image, Text, TouchableOpacity, View } from "react-native";
 import YoutubePlayer from "react-native-youtube-iframe";
 import { API_BASE_URL } from "../constants/Config";
 
 const { width } = Dimensions.get("window");
+
+// Separate component so useVideoPlayer hook is always called unconditionally
+const DirectVideoPlayer = ({ uri }: { uri: string }) => {
+  const player = useVideoPlayer(uri, (p) => {
+    p.loop = true;
+    p.muted = true;
+    p.play();
+  });
+  return (
+    <VideoView
+      player={player}
+      style={{ width: "100%", height: "100%" }}
+      contentFit="cover"
+      nativeControls={false}
+    />
+  );
+};
 
 const VideoCardSection = () => {
   const [videos, setVideos] = useState<any[]>([]);
@@ -100,14 +117,7 @@ const VideoCardSection = () => {
                 );
               })()
             ) : (
-              <Video
-                source={{ uri: currentVideo.video_url }}
-                style={{ width: "100%", height: "100%" }}
-                resizeMode={ResizeMode.COVER}
-                isLooping
-                shouldPlay={true}
-                isMuted={true}
-              />
+              <DirectVideoPlayer uri={currentVideo.video_url} />
             )
           ) : currentVideo.thumbnail_url ? (
             <Image

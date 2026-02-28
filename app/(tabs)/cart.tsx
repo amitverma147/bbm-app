@@ -1,34 +1,33 @@
-import { Feather, MaterialIcons, Ionicons } from "@expo/vector-icons";
+import { Feather, Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
-  Dimensions,
-  FlatList,
-  Image,
-  Text,
-  TouchableOpacity,
-  View,
-  ScrollView,
-  ActivityIndicator,
-  TextInput,
-  Modal,
-  Alert,
+    ActivityIndicator,
+    Alert,
+    Dimensions,
+    FlatList,
+    Image,
+    Modal,
+    ScrollView,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
+import Animated, { FadeInDown, FadeInUp } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useCart } from "../../contexts/CartContext";
-import { useLocation } from "../../contexts/LocationContext";
-import { useDelivery } from "../../contexts/DeliveryChargeContext";
-import { useAuth } from "../../contexts/AuthContext";
 import { API_BASE_URL } from "../../constants/Config";
-import Animated, { FadeInUp, FadeInDown } from "react-native-reanimated";
+import { useAuth } from "../../contexts/AuthContext";
+import { useCart } from "../../contexts/CartContext";
+import { useDelivery } from "../../contexts/DeliveryChargeContext";
+import { useLocation } from "../../contexts/LocationContext";
 import * as CouponOnApi from "../../services/couponService";
 import * as OrderService from "../../services/orderService";
 import * as WalletService from "../../services/walletService";
 
+import AddressDetailsFormModal from '../../components/AddressDetailsFormModal';
 import LocationPickerModal from '../../components/LocationPickerModal';
 import PaymentModal from '../../components/PaymentModal';
-import AddressDetailsFormModal from '../../components/AddressDetailsFormModal';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width } = Dimensions.get("window");
 
@@ -1018,9 +1017,9 @@ const CartScreen = () => {
               <View className="mx-4 mt-2 bg-green-50 rounded-xl p-4 border border-green-100">
                 <View className="flex-row justify-between items-center mb-3">
                   <Text className="text-sm font-bold text-gray-900">Super Savings on this order</Text>
-                  <View className="bg-green-600 px-3 py-1 rounded text-white font-bold text-xs">
+                  <Text className="bg-green-600 px-3 py-1 rounded text-white font-bold text-xs">
                     ₹{totalSavings.toFixed(0)}
-                  </View>
+                  </Text>
                 </View>
 
                 <View className="bg-white rounded-lg p-3 space-y-2">

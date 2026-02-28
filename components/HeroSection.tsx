@@ -111,13 +111,13 @@ const HeroSection = () => {
           <TouchableOpacity
             activeOpacity={1}
             onPress={() => handlePress(item)}
-            className="w-full h-full p-0 m-0"
+            style={{ width: "100%", height: "100%", padding: 0, margin: 0 }}
           >
-            <View className="w-full h-full p-0 m-0">
+            <View style={{ width: "100%", height: "100%", padding: 0, margin: 0 }}>
               {item.image_url ? (
                 <Image
                   source={{ uri: item.image_url }}
-                  className="w-full h-full"
+                  style={{ width: "100%", height: "100%" }}
                   resizeMode="stretch"
                 />
               ) : (
@@ -125,7 +125,7 @@ const HeroSection = () => {
                   colors={getGradientColors(item.bgColor) as any}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
-                  className="w-full h-full justify-center items-center"
+                  style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
                 >
                   <Text className="text-white text-3xl font-bold text-center px-4">
                     {item.name}

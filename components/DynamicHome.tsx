@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { memo, useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, FlatList, View } from "react-native";
 import { getActiveSections } from "../services/homeService";
 import BrandVista from "./BrandVista";
@@ -19,57 +19,73 @@ import TopProducts from "./TopProducts";
 import TrendingProducts from "./TrendingProducts";
 import VideoCardSection from "./VideoCardSection";
 
+// Stable named wrappers — defined outside component so references never change between renders
+const DynamicMegaSaleWrapper = memo((props: any) => (
+  <DynamicMegaSale {...props} products={props.data?.products} />
+));
+const DiscountCornerWrapper = memo(() => (
+  <DualCategorySection
+    sectionLeftKey="discount_corner_left"
+    sectionRightKey="discount_corner_right"
+  />
+));
+const DualDealsWrapper = memo(() => (
+  <DualCategorySection
+    sectionLeftKey="dual_deals_left"
+    sectionRightKey="dual_deals_right"
+  />
+));
+const MegaMonsoonWrapper = memo((props: any) => <TabbedProductSection {...props} />);
+const BigBestMartDealsWrapper = memo((props: any) => (
+  <DynamicProductSection {...props} endpoint="/productsroute/super-saver" />
+));
+const QuickPicksWrapper = memo((props: any) => (
+  <DynamicProductSection {...props} endpoint="/productsroute/super-saver?limit=50" />
+));
+const EverydayEssentialsWrapper = memo((props: any) => (
+  <DynamicProductSection {...props} endpoint="/productsroute/top-products" />
+));
+
 // --- MAPPING of Component Names to Mobile Implementations ---
-const COMPONENT_MAP: any = {
-  HeroSection: HeroSection, // Updated Mapping
-  ShopByCategory: ShopByCategory,
-  BrandVista: BrandVista,
-  VideoCardSection: VideoCardSection,
-  DynamicMegaSale: (props: any) => (
-    <DynamicMegaSale {...props} products={props.data?.products} />
-  ),
-  SmallPromoCards: SmallPromoCards,
-  PromoBanner: PromoBanner,
-  ShopByStore: ShopByStore,
-
-  // Complex Sections
-  DiscountCorner: () => (
-    <DualCategorySection
-      sectionLeftKey="discount_corner_left"
-      sectionRightKey="discount_corner_right"
-    />
-  ),
-  DualDeals: () => (
-    <DualCategorySection
-      sectionLeftKey="dual_deals_left"
-      sectionRightKey="dual_deals_right"
-    />
-  ),
-  MegaMonsoon: (props: any) => <TabbedProductSection {...props} />,
-
-  // Product Sections (Using new Wrappers)
-  NewArrivals: TopProducts, // Web maps TopProducts to New Arrivals essentially (logic wise)
-  TopProducts: TopProducts,
-  TrendingProducts: TrendingProducts,
-  FeaturedProducts: FeaturedProducts,
-  RecommendedProducts: RecommendedProducts,
-
-  BigBestMartDeals: (props: any) => (
-    <DynamicProductSection {...props} endpoint="/productsroute/super-saver" />
-  ),
-  QuickPicks: (props: any) => (
-    <DynamicProductSection
-      {...props}
-      endpoint="/productsroute/super-saver?limit=50"
-    />
-  ),
-  DailyDeals: DailyDeals, // Updated Mapping
-  EverydayEssentials: (props: any) => (
-    <DynamicProductSection {...props} endpoint="/productsroute/top-products" />
-  ),
-
+const COMPONENT_MAP: Record<string, React.ComponentType<any>> = {
+  HeroSection,
+  ShopByCategory,
+  BrandVista,
+  VideoCardSection,
+  DynamicMegaSale: DynamicMegaSaleWrapper,
+  SmallPromoCards,
+  PromoBanner,
+  ShopByStore,
+  DiscountCorner: DiscountCornerWrapper,
+  DualDeals: DualDealsWrapper,
+  MegaMonsoon: MegaMonsoonWrapper,
+  NewArrivals: TopProducts,
+  TopProducts,
+  TrendingProducts,
+  FeaturedProducts,
+  RecommendedProducts,
+  BigBestMartDeals: BigBestMartDealsWrapper,
+  QuickPicks: QuickPicksWrapper,
+  DailyDeals,
+  EverydayEssentials: EverydayEssentialsWrapper,
   QuickAccess: CategoriesGrid,
 };
+
+// Memoized row — React skips re-render when item reference hasn't changed
+const SectionRow = memo(({ item }: { item: any }) => {
+  const Component = COMPONENT_MAP[item.component_name];
+  if (!Component) return null;
+  return (
+    <View style={{ marginBottom: 8, width: "100%", backgroundColor: "#fff" }}>
+      <Component
+        sectionId={item.id}
+        sectionName={item.section_name}
+        sectionDescription={item.description}
+        data={item}
+      />
+    </View>
+  );
+});
 
 // Sections to ensure are present (as per web fallback logic)
 const PRIORITY_SECTIONS = ["QuickAccess", "HeroSection", "DynamicMegaSale"];
@@ -143,24 +159,12 @@ const DynamicHome = ({
     }
   };
 
-  const renderItem = React.useCallback(({ item }: { item: any }) => {
-    const Component = COMPONENT_MAP[item.component_name];
-    if (!Component) {
-      return null;
-    }
-    return (
-      <View className="mb-2 p-0 m-0 w-full bg-white">
-        <Component
-          sectionId={item.id}
-          sectionName={item.section_name}
-          sectionDescription={item.description}
-          data={item}
-        />
-      </View>
-    );
-  }, []);
+  const renderItem = useCallback(
+    ({ item }: { item: any }) => <SectionRow item={item} />,
+    [],
+  );
 
-  const keyExtractor = React.useCallback(
+  const keyExtractor = useCallback(
     (item: any) => item.id?.toString() || item.section_key,
     [],
   );
@@ -180,13 +184,13 @@ const DynamicHome = ({
         data={sections}
         renderItem={renderItem}
         keyExtractor={keyExtractor}
-        initialNumToRender={5}
+        initialNumToRender={4}
         maxToRenderPerBatch={2}
-        windowSize={10}
+        windowSize={7}
         removeClippedSubviews={true}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 100, padding: 0, margin: 0 }}
-        updateCellsBatchingPeriod={50}
+        updateCellsBatchingPeriod={100}
       />
     </View>
   );

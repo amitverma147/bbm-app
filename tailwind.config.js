@@ -6,6 +6,11 @@ module.exports = {
   theme: {
     extend: {
       fontFamily: {
+        'poppins': ['Poppins_400Regular'],
+        'poppins-medium': ['Poppins_500Medium'],
+        'poppins-semibold': ['Poppins_600SemiBold'],
+        'poppins-bold': ['Poppins_700Bold'],
+        'poppins-extrabold': ['Poppins_800ExtraBold'],
         'plus-jakarta': ['PlusJakartaSans-Regular'],
         'plus-jakarta-italic': ['PlusJakartaSans-Italic'],
       },

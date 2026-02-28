@@ -1,13 +1,20 @@
 import { Stack, useRouter, useSegments } from "expo-router"; // Hot Reload Fix
+import SmartBar from "../components/SmartBar";
 import "../polyfills";
-import FloatingCartBar from "../components/FloatingCartBar";
-import ActiveOrderBar from "../components/ActiveOrderBar";
 
 import SplashScreen from "@/components/splash-screen";
-import { useFonts } from "expo-font";
+import {
+    Poppins_400Regular,
+    Poppins_500Medium,
+    Poppins_600SemiBold,
+    Poppins_700Bold,
+    Poppins_800ExtraBold,
+    useFonts,
+} from "@expo-google-fonts/poppins";
 import { useEffect, useState } from "react";
-import "react-native-reanimated";
+import { Text } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import "react-native-reanimated";
 import "../global.css";
 
 import { AuthProvider, useAuth } from "../contexts/AuthContext";
@@ -16,6 +23,10 @@ import { DeliveryChargeProvider } from "../contexts/DeliveryChargeContext";
 import { LocationProvider } from "../contexts/LocationContext";
 
 import { WalletProvider } from "../contexts/WalletContext";
+
+// Apply Poppins as default font globally
+(Text as any).defaultProps = (Text as any).defaultProps || {};
+(Text as any).defaultProps.style = [{ fontFamily: "Poppins_400Regular" }];
 
 // Separate component for Auth Guard to use useAuth hook
 function AuthGuard({ children }: { children: React.ReactNode }) {
@@ -55,6 +66,11 @@ export const unstable_settings = {
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
+    Poppins_400Regular,
+    Poppins_500Medium,
+    Poppins_600SemiBold,
+    Poppins_700Bold,
+    Poppins_800ExtraBold,
     "PlusJakartaSans-Regular": require("../assets/fonts/PlusJakartaSans-VariableFont_wght.ttf"),
     "PlusJakartaSans-Italic": require("../assets/fonts/PlusJakartaSans-Italic-VariableFont_wght.ttf"),
   });
@@ -98,8 +114,7 @@ export default function RootLayout() {
                     <Stack.Screen name="bazaar" options={{ headerShown: false }} />
                     <Stack.Screen name="+not-found" />
                   </Stack>
-                  <ActiveOrderBar />
-                  <FloatingCartBar offset={70} />
+                  <SmartBar />
                 </AuthGuard>
               </DeliveryChargeProvider>
             </WalletProvider>

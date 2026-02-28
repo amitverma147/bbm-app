@@ -1,15 +1,15 @@
-import { View, Text, TouchableOpacity, FlatList, ActivityIndicator, RefreshControl, ScrollView } from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
+import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons'
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router'
 import React, { useEffect, useState } from 'react'
-import { useLocalSearchParams, useRouter } from 'expo-router'
-import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons'
-import { getProductsBySubcategory } from '../../services/productService'
+import { ActivityIndicator, FlatList, RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native'
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import ProductCard from '../../components/ProductCard'
-import { Stack } from 'expo-router'
+import { getProductsBySubcategory } from '../../services/productService'
 
 const CategoryListing = () => {
     const { id, name } = useLocalSearchParams();
     const router = useRouter();
+    const insets = useSafeAreaInsets();
     const [products, setProducts] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -53,7 +53,7 @@ const CategoryListing = () => {
     );
 
     return (
-        <SafeAreaView className="flex-1 bg-white" edges={['top']}>
+        <SafeAreaView className="flex-1 bg-white" edges={['top', 'left', 'right']}>
             <Stack.Screen options={{ headerShown: false }} />
             {/* Header */}
             <View className="flex-row items-center px-4 py-3 border-b border-gray-100">
@@ -110,7 +110,7 @@ const CategoryListing = () => {
                     renderItem={renderItem}
                     keyExtractor={(item) => item.id}
                     numColumns={2}
-                    contentContainerStyle={{ padding: 8 }}
+                    contentContainerStyle={{ padding: 8, paddingBottom: insets.bottom + 150 }}
                     refreshControl={
                         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#EA580C']} />
                     }
