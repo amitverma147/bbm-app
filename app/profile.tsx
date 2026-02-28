@@ -1,10 +1,11 @@
 import { Feather, Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import React, { useEffect } from "react";
-import { ScrollView, Text, TouchableOpacity, View, Alert, ActivityIndicator } from "react-native";
+import React, { useEffect, useState } from "react";
+import { ScrollView, Text, TouchableOpacity, View, Alert, ActivityIndicator, Linking } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../contexts/AuthContext";
 import { useWallet } from "../contexts/WalletContext";
+import EditProfileModal from "../components/profile/EditProfileModal";
 
 
 const MenuItem = ({ icon, title, subtitle, onPress }: any) => (
@@ -31,7 +32,7 @@ const Profile = () => {
   const router = useRouter();
   const { userProfile, logout, refreshUserProfile, loading } = useAuth();
   const { balance, isFrozen } = useWallet();
-
+  const [showEditProfile, setShowEditProfile] = useState(false);
 
   useEffect(() => {
     refreshUserProfile();
@@ -113,7 +114,7 @@ const Profile = () => {
               <Text className="text-gray-500 font-medium tracking-wide">
                 {userData.phone}
               </Text>
-              <TouchableOpacity className="mt-2 flex-row items-center">
+              <TouchableOpacity className="mt-2 flex-row items-center" onPress={() => setShowEditProfile(true)}>
                 <Text className="text-orange-600 font-bold text-xs mr-1">
                   Edit Profile
                 </Text>
@@ -219,7 +220,8 @@ const Profile = () => {
             <MenuItem
               icon={<Ionicons name="card-outline" size={20} color="#4B5563" />}
               title="E-Gift Cards"
-              onPress={() => { }}
+              subtitle="Coming soon"
+              onPress={() => Alert.alert('Coming Soon', 'E-Gift Cards will be available soon!')}
             />
             <MenuItem
               icon={
@@ -234,14 +236,16 @@ const Profile = () => {
                 <Ionicons name="person-outline" size={20} color="#4B5563" />
               }
               title="Profile Settings"
-              onPress={() => { }}
+              subtitle="Edit your name & phone"
+              onPress={() => setShowEditProfile(true)}
             />
             <MenuItem
               icon={
                 <Ionicons name="wallet-outline" size={20} color="#4B5563" />
               }
               title="Payment Methods"
-              onPress={() => { }}
+              subtitle="Wallet & online payments"
+              onPress={() => router.push('/wallet')}
             />
           </View>
 
@@ -258,7 +262,8 @@ const Profile = () => {
                 />
               }
               title="Notifications"
-              onPress={() => { }}
+              subtitle="Manage push notifications"
+              onPress={() => Alert.alert('Notifications', 'Notification preferences coming soon!')}
             />
             <MenuItem
               icon={
@@ -266,7 +271,7 @@ const Profile = () => {
               }
               title="Language"
               subtitle="English"
-              onPress={() => { }}
+              onPress={() => Alert.alert('Language', 'Currently only English is supported.')}
             />
             <MenuItem
               icon={
@@ -277,7 +282,8 @@ const Profile = () => {
                 />
               }
               title="About Us"
-              onPress={() => { }}
+              subtitle="Learn more about BigBestMart"
+              onPress={() => Linking.openURL('https://www.bigbestmart.com/pages/about-us')}
             />
           </View>
 
@@ -300,6 +306,12 @@ const Profile = () => {
             </Text>
           </View>
         </ScrollView>
+
+        {/* Edit Profile Modal */}
+        <EditProfileModal
+          visible={showEditProfile}
+          onClose={() => setShowEditProfile(false)}
+        />
       </SafeAreaView>
     </View>
   );

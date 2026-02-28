@@ -17,6 +17,7 @@ import YoutubePlayer from "react-native-youtube-iframe";
 import ProductCard from "../../components/ProductCard";
 import { API_BASE_URL } from "../../constants/Config";
 import { useCart } from "../../contexts/CartContext";
+import { addToWishlist, removeFromWishlist, checkWishlistItem } from "../../services/wishlistService";
 
 const { width, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
@@ -40,6 +41,7 @@ export default function SingleProductPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isWishlisted, setIsWishlisted] = useState(false);
+  const [wishlistLoading, setWishlistLoading] = useState(false);
   const [relatedProducts, setRelatedProducts] = useState<any[]>([]);
 
   // Delivery & Pincode
@@ -116,6 +118,48 @@ export default function SingleProductPage() {
 
     fetchData();
   }, [productId]);
+
+  // Check wishlist status on load
+  useEffect(() => {
+    const checkWishlist = async () => {
+      if (!productId) return;
+      try {
+        const result = await checkWishlistItem(productId as string);
+        if (result.success) {
+          setIsWishlisted(result.inWishlist);
+        }
+      } catch (e) {
+        // silently fail
+      }
+    };
+    checkWishlist();
+  }, [productId]);
+
+  const handleToggleWishlist = async () => {
+    if (!product || wishlistLoading) return;
+    setWishlistLoading(true);
+    try {
+      if (isWishlisted) {
+        const result = await removeFromWishlist(product.id);
+        if (result.success) {
+          setIsWishlisted(false);
+        } else {
+          Alert.alert('Error', result.error || 'Failed to remove from wishlist');
+        }
+      } else {
+        const result = await addToWishlist(product.id);
+        if (result.success) {
+          setIsWishlisted(true);
+        } else {
+          Alert.alert('Error', result.error || 'Failed to add to wishlist');
+        }
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Something went wrong');
+    } finally {
+      setWishlistLoading(false);
+    }
+  };
 
   const currentPrice = selectedVariant
     ? selectedVariant.price || selectedVariant.variant_price
@@ -258,25 +302,47 @@ export default function SingleProductPage() {
 
   if (loading) {
     return (
-      <View className="flex-1 bg-white items-center justify-center">
-        <ActivityIndicator size="large" color="#00C28A" />
-      </View>
+      <SafeAreaView className="flex-1 bg-white" edges={['top', 'left', 'right']}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <View className="flex-row items-center px-4 py-3 border-b border-gray-100">
+          <TouchableOpacity onPress={() => router.back()} className="p-2 -ml-2">
+            <Ionicons name="arrow-back" size={24} color="#1F2937" />
+          </TouchableOpacity>
+        </View>
+        <View className="flex-1 items-center justify-center">
+          <ActivityIndicator size="large" color="#EA580C" />
+          <Text className="mt-4 text-gray-500 font-medium text-sm">Loading product...</Text>
+        </View>
+      </SafeAreaView>
     );
   }
 
   if (error || !product) {
     return (
-      <View className="flex-1 bg-white items-center justify-center p-4">
-        <Text className="text-red-500 font-bold text-center">
-          {error || "Product not found"}
-        </Text>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          className="mt-4 bg-gray-100 px-6 py-2 rounded-lg"
-        >
-          <Text className="text-gray-900 font-bold">Go Back</Text>
-        </TouchableOpacity>
-      </View>
+      <SafeAreaView className="flex-1 bg-white" edges={['top', 'left', 'right']}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <View className="flex-row items-center px-4 py-3 border-b border-gray-100">
+          <TouchableOpacity onPress={() => router.back()} className="p-2 -ml-2">
+            <Ionicons name="arrow-back" size={24} color="#1F2937" />
+          </TouchableOpacity>
+          <Text className="flex-1 ml-2 text-lg font-bold text-gray-900">Product</Text>
+        </View>
+        <View className="flex-1 items-center justify-center px-8">
+          <View className="w-20 h-20 rounded-full bg-gray-100 items-center justify-center mb-4">
+            <Ionicons name="cube-outline" size={36} color="#9CA3AF" />
+          </View>
+          <Text className="text-gray-800 text-lg font-bold text-center mb-2">Product Not Found</Text>
+          <Text className="text-gray-400 text-sm text-center mb-6">
+            {error || "This product is unavailable or may have been removed."}
+          </Text>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            className="bg-orange-600 px-8 py-3 rounded-xl"
+          >
+            <Text className="text-white font-bold text-sm">Go Back</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
     );
   }
 
@@ -380,12 +446,20 @@ export default function SingleProductPage() {
             <Text className="text-[22px] font-black text-gray-900 leading-tight flex-1">
               {product.name}
             </Text>
-            <TouchableOpacity onPress={() => setIsWishlisted(!isWishlisted)}>
-              <Ionicons
-                name="heart"
-                size={24}
-                color={isWishlisted ? "#ef4444" : "#9ca3af"}
-              />
+            <TouchableOpacity
+              onPress={handleToggleWishlist}
+              disabled={wishlistLoading}
+              className={wishlistLoading ? 'opacity-50' : ''}
+            >
+              {wishlistLoading ? (
+                <ActivityIndicator size="small" color="#ef4444" />
+              ) : (
+                <Ionicons
+                  name={isWishlisted ? "heart" : "heart-outline"}
+                  size={26}
+                  color={isWishlisted ? "#ef4444" : "#9ca3af"}
+                />
+              )}
             </TouchableOpacity>
           </View>
 
