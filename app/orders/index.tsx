@@ -59,14 +59,14 @@ const OrdersScreen = () => {
         >
             <View className="flex-row justify-between items-start mb-3">
                 <View>
-                    <Text className="text-xs text-gray-500 font-medium mb-1">ORDER ID: {item.order_id || item._id?.toString().slice(-8).toUpperCase()}</Text>
-                    <Text className="text-sm font-bold text-gray-900">{new Date(item.createdAt).toLocaleDateString()}</Text>
+                    <Text className="text-xs text-gray-500 font-medium mb-1">ORDER ID: {item.order_id || (item.id || item._id)?.toString().slice(-8).toUpperCase()}</Text>
+                    <Text className="text-sm font-bold text-gray-900">{new Date(item.created_at || item.createdAt).toLocaleDateString()}</Text>
                 </View>
-                <View className={`px-3 py-1 rounded-full ${item.status === 'Delivered' ? 'bg-green-100' :
-                    item.status === 'Cancelled' ? 'bg-red-100' : 'bg-orange-100'
+                <View className={`px-3 py-1 rounded-full ${item.status?.toLowerCase() === 'delivered' ? 'bg-green-100' :
+                    item.status?.toLowerCase() === 'cancelled' ? 'bg-red-100' : 'bg-orange-100'
                     }`}>
-                    <Text className={`text-xs font-bold ${item.status === 'Delivered' ? 'text-green-700' :
-                        item.status === 'Cancelled' ? 'text-red-700' : 'text-orange-700'
+                    <Text className={`text-xs font-bold uppercase tracking-widest ${item.status?.toLowerCase() === 'delivered' ? 'text-green-700' :
+                        item.status?.toLowerCase() === 'cancelled' ? 'text-red-700' : 'text-orange-700'
                         }`}>{item.status}</Text>
                 </View>
             </View>
@@ -77,13 +77,13 @@ const OrdersScreen = () => {
                 </View>
                 <View className="flex-1">
                     <Text className="text-gray-900 font-medium" numberOfLines={1}>
-                        {item.items?.length || 0} Items
+                        {(item.order_items || item.items)?.length || item._count?.order_items || 0} Items
                     </Text>
                     <Text className="text-gray-500 text-xs mt-0.5" numberOfLines={1}>
-                        {item.items?.map((i: any) => i.product_name).join(', ')}
+                        {(item.order_items || item.items)?.map((i: any) => i.product_name || i.variant?.product?.name).filter(Boolean).join(', ') || 'Various items'}
                     </Text>
                 </View>
-                <Text className="text-base font-bold text-gray-900">₹{item.total}</Text>
+                <Text className="text-base font-black text-gray-900">₹{parseFloat(item.total_price || item.total || 0).toFixed(0)}</Text>
             </View>
 
             <View className="flex-row items-center justify-between mt-2 pt-2 border-t border-dashed border-gray-100">

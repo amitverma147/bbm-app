@@ -3,11 +3,11 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter, useSegments } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
-    Animated,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Animated,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { API_BASE_URL } from "../constants/Config";
@@ -26,10 +26,10 @@ const STATUS_CONFIG: Record<
   string,
   { label: string; icon: keyof typeof MaterialCommunityIcons.glyphMap; bg: string }
 > = {
-  pending:    { label: "Order Received",   icon: "clock-outline",          bg: "#F59E0B" },
-  confirmed:  { label: "Order Confirmed",  icon: "check-circle-outline",   bg: "#10B981" },
-  processing: { label: "Preparing Order",  icon: "silverware-fork-knife",  bg: "#3B82F6" },
-  shipped:    { label: "Out for Delivery", icon: "truck-delivery-outline", bg: "#8B5CF6" },
+  pending: { label: "Order Received", icon: "clock-outline", bg: "#F59E0B" },
+  confirmed: { label: "Order Confirmed", icon: "check-circle-outline", bg: "#10B981" },
+  processing: { label: "Preparing Order", icon: "silverware-fork-knife", bg: "#3B82F6" },
+  shipped: { label: "Out for Delivery", icon: "truck-delivery-outline", bg: "#8B5CF6" },
 };
 
 const ACTIVE_STATUSES = ["pending", "confirmed", "processing", "shipped"];
@@ -128,7 +128,7 @@ const SmartBar = () => {
         {hasOrder && isHomePage && (
           <TouchableOpacity
             style={[styles.orderStrip, { backgroundColor: statusCfg.bg }]}
-            onPress={() => router.push("/tracking/dummy")}
+            onPress={() => router.push(`/orders/${activeOrder.id || activeOrder._id}` as any)}
             activeOpacity={0.85}
           >
             <MaterialCommunityIcons name={statusCfg.icon} size={14} color="white" />

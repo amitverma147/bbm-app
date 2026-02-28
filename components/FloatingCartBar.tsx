@@ -8,52 +8,36 @@ const FloatingCartBar = ({ offset = 0 }: { offset?: number }) => {
     const { getCartTotal, getTotalItems } = useCart();
     const router = useRouter();
     const segments = useSegments();
-    const [slideAnim] = useState(new Animated.Value(200));
+
+    const [cartSlideAnim] = useState(new Animated.Value(200));
 
     const totalItems = getTotalItems();
     const cartTotal = getCartTotal();
 
-    // Hide if on cart or checkout pages
     const isCartPage = (segments as any).includes('cart') || (segments as any).includes('checkout');
 
+    // Cart bar animation
     useEffect(() => {
         if (totalItems > 0 && !isCartPage) {
-            showBar();
+            Animated.spring(cartSlideAnim, { toValue: 0, useNativeDriver: true, tension: 50, friction: 8 }).start();
         } else {
-            hideBar();
+            Animated.timing(cartSlideAnim, { toValue: 200, duration: 300, useNativeDriver: true }).start();
         }
     }, [totalItems, isCartPage]);
 
-    const showBar = () => {
-        Animated.spring(slideAnim, {
-            toValue: 0,
-            useNativeDriver: true,
-            tension: 50,
-            friction: 8
-        }).start();
-    };
-
-    const hideBar = () => {
-        Animated.timing(slideAnim, {
-            toValue: 200,
-            duration: 300,
-            useNativeDriver: true
-        }).start();
-    };
-
-    if (totalItems === 0) return null;
+    if (totalItems === 0 || isCartPage) return null;
 
     return (
         <Animated.View
             style={{
-                transform: [{ translateY: slideAnim }],
-                bottom: 80 + offset // Base offset to sit above tabs
+                transform: [{ translateY: cartSlideAnim }],
+                bottom: 80 + offset
             }}
             className="absolute left-0 right-0 z-[60] px-4"
         >
             <TouchableOpacity
                 activeOpacity={0.9}
-                onPress={() => router.push('/tracking/dummy')}
+                onPress={() => router.push('/(tabs)/cart')}
                 className="bg-[#22c55e] rounded-2xl flex-row items-center justify-between px-5 py-3.5 shadow-2xl border border-green-400"
             >
                 <View className="flex-row items-center">
@@ -71,8 +55,8 @@ const FloatingCartBar = ({ offset = 0 }: { offset?: number }) => {
                 </View>
 
                 <View className="flex-row items-center bg-white/20 px-4 py-2 rounded-xl">
-                    <Text className="text-white font-black text-sm mr-1">TRACK RIDER</Text>
-                    <Ionicons name="map" size={16} color="white" />
+                    <Text className="text-white font-black text-sm mr-1">VIEW CART</Text>
+                    <Ionicons name="arrow-forward" size={16} color="white" />
                 </View>
             </TouchableOpacity>
         </Animated.View>

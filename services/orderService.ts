@@ -46,6 +46,23 @@ export const placeOrder = async (orderData: CreateOrderPayload, token: string) =
     }
 };
 
+export const createRazorpayOrder = async (amount: number, token: string) => {
+    try {
+        const response = await fetch(`${API_BASE_URL}/order/payments/create-order`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${token}`
+            },
+            body: JSON.stringify({ amount })
+        });
+        return await response.json();
+    } catch (error) {
+        console.error("Error creating Razorpay order:", error);
+        throw error;
+    }
+};
+
 export const getMyOrders = async (token: string, page = 1, limit = 10) => {
     try {
         const response = await fetch(`${API_BASE_URL}/orders/my-orders?page=${page}&limit=${limit}`, {

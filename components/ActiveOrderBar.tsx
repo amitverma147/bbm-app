@@ -100,7 +100,7 @@ const ActiveOrderBar = ({ offset = 0 }: { offset?: number }) => {
         >
             <TouchableOpacity
                 activeOpacity={0.9}
-                onPress={() => router.push('/tracking/dummy')}
+                onPress={() => router.push(`/orders/${activeOrder.id || activeOrder._id}` as any)}
                 className="bg-white rounded-2xl flex-row items-center p-3 shadow-xl border border-gray-100 mb-2"
             >
                 <View className="bg-orange-50 p-2 rounded-xl mr-3">

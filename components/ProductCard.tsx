@@ -139,37 +139,38 @@ const ProductCard = ({ item, onAdd, onPress, gridStyle }: ProductCardProps) => {
 
   const hasVariants = item.variants && item.variants.length > 0;
 
-  // Enhanced check merging variant and parent item stock logic
+  // Enhanced check using inventory-based stock from the backend
   const checkIsOutOfStock = (variant: any, productObj: any) => {
-    // 1. Check variant explicitly first
+    // 1. Check variant-level inventory stock (new system: computed_stock from inventory table)
     if (variant) {
+      // New inventory-based fields from transformProduct
+      if (variant.in_stock !== undefined) return !variant.in_stock;
+      if (variant.computed_stock !== undefined) return variant.computed_stock <= 0;
+
+      // Check inventory array directly if present
+      if (variant.inventory && Array.isArray(variant.inventory)) {
+        const totalInvStock = variant.inventory.reduce((sum: number, inv: any) => sum + (inv.stock_qty || 0), 0);
+        return totalInvStock <= 0;
+      }
+
+      // Legacy fallbacks
       if (variant.inStock !== undefined && variant.inStock === false) return true;
       if (variant.availableStock !== undefined && variant.availableStock <= 0) return true;
-      if (variant.stockInfo || variant.stock_info) {
-        const isStockFalse = (variant.stockInfo?.in_stock ?? variant.stock_info?.in_stock) === false;
-        const isAvailableZero = (variant.stockInfo?.available_stock ?? variant.stock_info?.available_stock ?? 1) <= 0;
-        if (isStockFalse || isAvailableZero) return true;
-      }
       if (variant.variant_stock !== undefined && variant.variant_stock <= 0) return true;
       if (variant.stock !== undefined && variant.stock <= 0) return true;
 
-      // If variant explicitly has positive stock, it's IN stock.
+      // If variant explicitly has positive stock
       if (variant.inStock === true || variant.availableStock > 0 || variant.stock > 0 || variant.variant_stock > 0) return false;
     }
 
-    // 2. Fallback to product if variant has NO stock info, or if variant is null
+    // 2. Fallback to product-level stock
     if (productObj) {
       if (productObj.inStock !== undefined && productObj.inStock === false) return true;
-      if (productObj.availableStock !== undefined && productObj.availableStock <= 0) return true;
-      if ((productObj as any).stockQuantity !== undefined && (productObj as any).stockQuantity <= 0) return true;
-      if (productObj.stockInfo || productObj.stock_info) {
-        const isStockFalse = (productObj.stockInfo?.in_stock ?? productObj.stock_info?.in_stock) === false;
-        const isAvailableZero = (productObj.stockInfo?.available_stock ?? productObj.stock_info?.available_stock ?? 1) <= 0;
-        if (isStockFalse || isAvailableZero) return true;
-      }
       if (productObj.stock !== undefined && productObj.stock <= 0) return true;
+      if (productObj.stockQuantity !== undefined && productObj.stockQuantity <= 0) return true;
     }
 
+    // Default: assume in stock if no stock info available
     return false;
   };
 

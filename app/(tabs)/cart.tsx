@@ -2,17 +2,17 @@ import { Feather, Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    Dimensions,
-    FlatList,
-    Image,
-    Modal,
-    ScrollView,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Dimensions,
+  FlatList,
+  Image,
+  Modal,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import Animated, { FadeInDown, FadeInUp } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -23,6 +23,8 @@ import { useDelivery } from "../../contexts/DeliveryChargeContext";
 import { useLocation } from "../../contexts/LocationContext";
 import * as CouponOnApi from "../../services/couponService";
 import * as OrderService from "../../services/orderService";
+import RazorpayCheckout from 'react-native-razorpay';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as WalletService from "../../services/walletService";
 
 import AddressDetailsFormModal from '../../components/AddressDetailsFormModal';
@@ -636,9 +638,84 @@ const CartScreen = () => {
         }
       } else {
         // ONLINE
-        Alert.alert("Coming Soon", "Online payment is currently under maintenance. Please use COD or Wallet.");
-        setIsPlacingOrder(false);
-        return;
+        const token = await AsyncStorage.getItem('auth_token');
+        if (!token) {
+          Alert.alert("Error", "Authentication token missing.");
+          setIsPlacingOrder(false);
+          return;
+        }
+
+        // 1. Create Razorpay order
+        const rzpResponse = await OrderService.createRazorpayOrder(Number(commonPayload.total) * 100, token);
+        if (!rzpResponse.success) {
+          Alert.alert("Error", rzpResponse.error || "Failed to initiate online payment");
+          setIsPlacingOrder(false);
+          return;
+        }
+
+        const options = {
+          description: 'Order Payment',
+          image: 'https://i.imgur.com/3g7nmJC.png',
+          currency: rzpResponse.currency || 'INR',
+          key: 'rzp_test_RhxzggkElloJam',
+          amount: rzpResponse.amount,
+          name: 'BigBest Mart',
+          order_id: rzpResponse.order_id,
+          prefill: {
+            email: currentUser?.email || '',
+            contact: currentUser?.phone || '',
+            name: currentUser?.name || 'User'
+          },
+          theme: { color: '#f97316' }
+        };
+
+        if (!RazorpayCheckout) {
+          Alert.alert("Error", "Razorpay requires a custom development build.");
+          setIsPlacingOrder(false);
+          return;
+        }
+
+        RazorpayCheckout.open(options).then(async (data: any) => {
+          try {
+            // 2. Place order on backend with Razorpay details
+            const response = await OrderService.placeOrder({
+              ...commonPayload,
+              payment_method: 'Razorpay',
+              razorpay_order_id: data.razorpay_order_id,
+              razorpay_payment_id: data.razorpay_payment_id,
+              razorpay_signature: data.razorpay_signature,
+            } as any, token);
+
+            if (response.success) {
+              Alert.alert("Success", "Order placed successfully!");
+              clearCart();
+              router.push("/orders");
+            } else {
+              Alert.alert("Error", response.error || "Failed to place order after payment");
+            }
+          } catch (err: any) {
+            Alert.alert("Error", err.message || "Failed to process order");
+          } finally {
+            setIsPlacingOrder(false);
+          }
+        }).catch((error: any) => {
+          console.error("Razorpay Error:", error);
+          let errorDesc = "Payment cancelled or failed";
+          if (error.error && error.error.description) {
+            errorDesc = error.error.description;
+          } else if (typeof error.description === 'string' && error.description.startsWith('{')) {
+            try {
+              const parsed = JSON.parse(error.description);
+              if (parsed.error && parsed.error.description) {
+                errorDesc = parsed.error.description;
+              }
+            } catch (e) { }
+          }
+          Alert.alert("Payment Info", errorDesc);
+          setIsPlacingOrder(false);
+        });
+
+        return; // handlePlaceOrder will resolve and eventually setIsPlacingOrder(false) in the Razorpay callbacks
       }
 
     } catch (error: any) {
@@ -1062,29 +1139,56 @@ const CartScreen = () => {
                 </View>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16 }}>
                   {relatedProducts.map((product, idx) => {
-                    const imageUrl = product.media?.[0]?.url || product.image || "https://example.com/placeholder.png";
+                    const imageUrl = product.image || product.media?.[0]?.url || null;
                     const price = product.price || product.variants?.[0]?.price || "0";
+                    const oldPrice = product.oldPrice || product.variants?.[0]?.old_price;
+                    const isOutOfStock = product.inStock === false;
 
                     return (
                       <TouchableOpacity
                         key={product.id}
-                        className="mr-3 w-32 bg-white rounded-2xl p-2 shadow-sm border border-gray-100"
+                        className="mr-3 bg-white rounded-2xl p-2 shadow-sm border border-gray-100"
+                        style={{ width: 140 }}
                         onPress={() => router.push(`/product/${product.id}` as any)}
                       >
-                        <Image
-                          source={{ uri: imageUrl }}
-                          className="w-full h-24 rounded-xl mb-2 bg-gray-50"
-                          resizeMode="contain"
-                        />
-                        <Text numberOfLines={2} className="text-xs font-bold text-gray-800 h-8 mb-1">{product.name}</Text>
+                        <View className="relative">
+                          {imageUrl ? (
+                            <Image
+                              source={{ uri: imageUrl }}
+                              className="w-full h-24 rounded-xl mb-2 bg-gray-50"
+                              resizeMode="contain"
+                            />
+                          ) : (
+                            <View className="w-full h-24 rounded-xl mb-2 bg-gray-100 items-center justify-center">
+                              <Ionicons name="image-outline" size={28} color="#d1d5db" />
+                            </View>
+                          )}
+                          {isOutOfStock && (
+                            <View className="absolute inset-0 bg-black/40 rounded-xl items-center justify-center mb-2">
+                              <Text className="text-white text-[10px] font-bold">OUT OF STOCK</Text>
+                            </View>
+                          )}
+                        </View>
+                        <Text numberOfLines={2} className="text-xs font-bold text-gray-800 mb-1" style={{ minHeight: 32 }}>{product.name}</Text>
                         <View className="flex-row justify-between items-center mt-1">
-                          <Text className="text-[#FF6B00] font-black text-sm">₹{price}</Text>
-                          <TouchableOpacity
-                            onPress={() => handleAddRelatedProduct(product)}
-                            className="bg-[#FF6B00] p-1.5 rounded-lg active:opacity-80"
-                          >
-                            <Feather name="plus" size={14} color="white" />
-                          </TouchableOpacity>
+                          <View>
+                            <Text className="text-[#FF6B00] font-black text-sm">₹{price}</Text>
+                            {oldPrice && parseFloat(oldPrice) > parseFloat(price) && (
+                              <Text className="text-[10px] text-gray-400 line-through">₹{oldPrice}</Text>
+                            )}
+                          </View>
+                          {!isOutOfStock ? (
+                            <TouchableOpacity
+                              onPress={() => handleAddRelatedProduct(product)}
+                              className="bg-[#FF6B00] p-1.5 rounded-lg active:opacity-80"
+                            >
+                              <Feather name="plus" size={14} color="white" />
+                            </TouchableOpacity>
+                          ) : (
+                            <View className="bg-gray-200 p-1.5 rounded-lg">
+                              <Feather name="plus" size={14} color="#9ca3af" />
+                            </View>
+                          )}
                         </View>
                       </TouchableOpacity>
                     );
