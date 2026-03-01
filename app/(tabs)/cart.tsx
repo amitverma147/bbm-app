@@ -15,7 +15,7 @@ import {
   View,
 } from "react-native";
 import Animated, { FadeInDown, FadeInUp } from "react-native-reanimated";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { API_BASE_URL } from "../../constants/Config";
 import { useAuth } from "../../contexts/AuthContext";
 import { useCart } from "../../contexts/CartContext";
@@ -39,6 +39,7 @@ const CartScreen = () => {
   const { getDeliverySettings, getUpsellMessage, defaultDeliveryCharge } = useDelivery();
   const router = useRouter();
   const { currentUser, getAccessToken } = useAuth();
+  const insets = useSafeAreaInsets();
 
   const [isBillDetailsOpen, setIsBillDetailsOpen] = useState(true);
   const [isCouponsOpen, setIsCouponsOpen] = useState(false);
@@ -910,6 +911,7 @@ const CartScreen = () => {
         data={cartItems}
         keyExtractor={(item) => `${item.id}-${item.variant_id || "default"}`}
         renderItem={renderItem}
+        contentContainerStyle={{ paddingBottom: cartItems.length > 0 ? 200 + insets.bottom : 24 }}
         ListHeaderComponent={() => (
           <View>
             {/* Milestone Progress Bar */}
@@ -937,7 +939,7 @@ const CartScreen = () => {
           </View>
         )}
         ListFooterComponent={() => (
-          <View className="pb-32">
+          <View className="pb-4">
             {/* Missed Something Section */}
             <View className="mx-4 mb-3 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 flex-row items-center justify-between">
               <Text className="font-bold text-gray-900">Missed something?</Text>
@@ -1414,7 +1416,10 @@ const CartScreen = () => {
 
       {/* Checkout Section Footer */}
       {cartItems.length > 0 && (
-        <View className="absolute bottom-0 w-full bg-white border-t border-gray-100 shadow-2xl pb-6">
+        <View
+          className="absolute bottom-0 w-full bg-white border-t border-gray-100 shadow-2xl"
+          style={{ paddingBottom: insets.bottom > 0 ? insets.bottom : 12 }}
+        >
 
           {/* Ordering For Strip */}
           <View className="mx-4 mt-3 bg-white rounded-xl p-3 flex-row items-center justify-between shadow-sm border border-gray-100">
