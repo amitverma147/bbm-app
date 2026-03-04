@@ -1,49 +1,66 @@
 import { View, ActivityIndicator } from "react-native";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import ProductSection from "./ProductSection";
-import { getSectionData } from "../services/homeService";
+import { getSectionData, getCachedSectionData } from "../services/homeService";
 
 interface DynamicProductSectionProps {
   section?: any;
-  endpoint: string; // Endpoint to fetch products from (e.g., '/productsroute/new-arrivals')
+  endpoint: string;
   sectionName?: string;
   gridLayout?: boolean;
 }
 
 const DynamicProductSection = (props: DynamicProductSectionProps) => {
   const { section, endpoint, gridLayout } = props;
-  const [products, setProducts] = useState([]);
-  const [loading, setLoading] = useState(true);
+
+  // Synchronous cache check — if data was already fetched, render instantly
+  const cachedData = getCachedSectionData(endpoint);
+
+  const [products, setProducts] = useState<any[]>(cachedData || []);
+  const [loading, setLoading] = useState(!cachedData);
+  const hasFetched = useRef(!!cachedData);
 
   useEffect(() => {
+    // Skip fetch if we already have cached data
+    if (hasFetched.current) return;
+    hasFetched.current = true;
     loadData();
   }, []);
 
   const loadData = async () => {
     setLoading(true);
-    const data = await getSectionData(endpoint);
-    let productsList = [];
-    if (Array.isArray(data)) {
-      productsList = data;
-    } else if (data && Array.isArray(data.products)) {
-      productsList = data.products;
-    } else if (data && Array.isArray(data.data)) {
-      productsList = data.data;
+    try {
+      const data = await getSectionData(endpoint);
+      let productsList: any[] = [];
+      if (Array.isArray(data)) {
+        productsList = data;
+      } else if (data && Array.isArray(data.products)) {
+        productsList = data.products;
+      } else if (data && Array.isArray(data.data)) {
+        productsList = data.data;
+      }
+      setProducts(productsList);
+    } catch (error) {
+      console.error(
+        `DynamicProductSection [${props.sectionName}] error:`,
+        error,
+      );
+    } finally {
+      setLoading(false);
     }
-    console.log(
-      `DynamicProductSection [${props.sectionName || endpoint}] items:`,
-      productsList.length,
-    );
-    setProducts(productsList);
-    setLoading(false);
   };
 
-  if (loading)
+  // Only show spinner on very first load (no cache)
+  if (loading && products.length === 0) {
     return (
       <View className="h-40 justify-center">
         <ActivityIndicator color="#FD5B00" />
       </View>
     );
+  }
+
+  // Hide section entirely if no products after loading
+  if (!loading && products.length === 0) return null;
 
   return (
     <ProductSection

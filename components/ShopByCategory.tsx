@@ -8,6 +8,7 @@ import {
   View,
 } from "react-native";
 import { API_BASE_URL } from "../constants/Config";
+import { cachedFetch } from "../services/apiCache";
 
 interface Category {
   id: number;
@@ -29,10 +30,9 @@ const ShopByCategory = ({ sectionName }: { sectionName?: string }) => {
     try {
       // Webservice: productService.getCategoriesForSection("shop_by_category")
       // Endpoint: /api/categories/section/:sectionKey/categories
-      const response = await fetch(
+      const data = await cachedFetch(
         `${API_BASE_URL}/categories/section/shop_by_category/categories`,
       );
-      const data = await response.json();
 
       if (data.success && data.categories) {
         setCategories(data.categories);

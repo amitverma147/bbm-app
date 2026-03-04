@@ -21,7 +21,12 @@ import AddressDetailsFormModal from "./AddressDetailsFormModal";
 import AddressListModal from "./AddressListModal";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { API_BASE_URL } from "../constants/Config";
-const logoImage = require('../assets/BigBestMart.gif');
+const logoImage = require("../assets/BigBestMart.gif");
+
+// Determine random delivery time for simulation
+const generateDeliveryTime = () => {
+  return "2 hours"; // This could be randomized or fetched realistically
+};
 
 const QUICK_ACCESS = [
   {
@@ -54,7 +59,13 @@ const QUICK_ACCESS = [
   },
 ];
 
-const Header = () => {
+import Animated, {
+  interpolate,
+  useAnimatedStyle,
+  Extrapolation,
+} from "react-native-reanimated";
+
+const Header = ({ scrollY }: { scrollY?: any }) => {
   const router = useRouter();
   const pathname = usePathname();
   const {
@@ -181,118 +192,155 @@ const Header = () => {
 
   // Determine display string for location
   const displayLocation = selectedAddress
-    ? `${selectedAddress.address_line_1 || selectedAddress.street_address || ""}, ${selectedAddress.city}`
+    ? selectedAddress.address_line_1 || selectedAddress.street_address || ""
     : location
       ? location
       : "Select Location";
+
+  const subLocation = selectedAddress
+    ? `${selectedAddress.city || ""}${selectedAddress.state ? `, ${selectedAddress.state}` : ""}`
+    : "Your Location";
+
+  // -- Reanimated Styles for Collapsible Top Tabs --
+  const quickAccessStyle = useAnimatedStyle(() => {
+    if (!scrollY) return {}; // Fallback if no scroll event is provided
+
+    // Collapse between 0 and 50px of scrolling
+    const height = interpolate(
+      scrollY?.value ?? 0,
+      [0, 50],
+      [70, 0],
+      Extrapolation.CLAMP,
+    );
+    const opacity = interpolate(
+      scrollY?.value ?? 0,
+      [0, 30],
+      [1, 0],
+      Extrapolation.CLAMP,
+    );
+    const paddingTop = interpolate(
+      scrollY?.value ?? 0,
+      [0, 50],
+      [12, 0],
+      Extrapolation.CLAMP,
+    );
+    const paddingBottom = interpolate(
+      scrollY?.value ?? 0,
+      [0, 50],
+      [8, 0],
+      Extrapolation.CLAMP,
+    );
+
+    return {
+      height,
+      opacity,
+      paddingTop,
+      paddingBottom,
+      overflow: "hidden",
+    };
+  });
 
   return (
     <SafeAreaView edges={["top"]} className="bg-white z-50">
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
       <View className="bg-white pb-4 shadow-sm border-b border-gray-100 rounded-b-[24px] z-50">
-        {/* Quick Tabs - Tab View */}
-        <View className="flex-row items-center justify-between px-4 pt-3 pb-2 w-full">
-          {QUICK_ACCESS.map((item) => {
-            const isActive =
-              (pathname === "/eato" && item.title === "Eato") ||
-              (pathname === "/star" && item.title === "Star") ||
-              (pathname === "/bazaar" && item.title === "Bazaar") ||
-              (pathname !== "/eato" && pathname !== "/star" && pathname !== "/bazaar" && item.title === "QWIK");
+        {/* Quick Tabs - Tab View (Animated to collapse on scroll) */}
+        <Animated.View
+          style={[{ width: "100%", paddingHorizontal: 16 }, quickAccessStyle]}
+        >
+          <View className="flex-row items-center justify-between w-full h-full">
+            {QUICK_ACCESS.map((item) => {
+              const isActive =
+                (pathname === "/eato" && item.title === "Eato") ||
+                (pathname === "/star" && item.title === "Star") ||
+                (pathname === "/bazaar" && item.title === "Bazaar") ||
+                (pathname !== "/eato" &&
+                  pathname !== "/star" &&
+                  pathname !== "/bazaar" &&
+                  item.title === "QWIK");
 
-            return (
-              <TouchableOpacity
-                key={item.id}
-                onPress={() => {
-                  if (item.title === "QWIK") router.push("/");
-                  else if (item.title === "Eato") router.push("/eato" as any);
-                  else if (item.title === "Star") router.push("/star" as any);
-                  else if (item.title === "Bazaar") router.push("/bazaar" as any);
-                }}
-                className={`flex-1 mx-1 flex-col items-center justify-center py-2.5 rounded-[14px] border ${isActive
-                  ? "bg-orange-50 border-orange-300"
-                  : "bg-white border-gray-200"
+              return (
+                <TouchableOpacity
+                  key={item.id}
+                  onPress={() => {
+                    if (item.title === "QWIK") router.push("/");
+                    else if (item.title === "Eato") router.push("/eato" as any);
+                    else if (item.title === "Star") router.push("/star" as any);
+                    else if (item.title === "Bazaar")
+                      router.push("/bazaar" as any);
+                  }}
+                  className={`flex-1 mx-1 flex-col items-center justify-center py-2.5 rounded-[14px] border ${
+                    isActive
+                      ? "bg-orange-50 border-orange-300"
+                      : "bg-white border-gray-200"
                   } shadow-sm`}
-              >
-                {item.title === "QWIK" ? (
-                  <LottieView
-                    source={{ uri: 'https://lottie.host/3c3cae43-2f5a-4ff4-8e94-695b04f65270/YlL23dpNak.lottie' }}
-                    autoPlay
-                    loop
-                    speed={3}
-                    style={{ width: 32, height: 32, marginBottom: 2 }}
-                  />
-                ) : (
-                  <Ionicons
-                    name={
-                      item.title === "Eato"
-                        ? "restaurant"
-                        : item.title === "Star"
-                          ? "star"
-                          : "grid"
-                    }
-                    size={22}
-                    color={isActive ? "#EA580C" : item.color}
-                    style={{ marginBottom: 4 }}
-                  />
-                )}
-                <Text
-                  className={`text-[11px] font-black ${isActive ? "text-orange-700" : "text-gray-700"
-                    }`}
-                  numberOfLines={1}
                 >
-                  {item.title}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-
-        {/* Middle Row: Brand & Location + Actions */}
-        <View className="flex-row items-center justify-between px-5 pt-2 pb-3">
-          {/* Left: Brand & Location */}
-          <TouchableOpacity
-            className="flex-1 mr-4"
-            onPress={handleLocationPress}
-          >
-            <View className="flex-row items-center ">
-              <ExpoImage
-                source={logoImage}
-                style={{ width: 60, height: 60 }}
-                contentFit="cover"
-                autoplay={true}
-              />
-              <Text style={{ fontFamily: 'Montserrat_800ExtraBold', fontSize: 18, color: '#111827', letterSpacing: -0.5, marginLeft: 2 }}>
-                BIG<Text style={{ color: '#EA580C' }}>BEST</Text>MART
-              </Text>
-            </View>
-
-            <View className="flex-row items-center bg-gray-50 self-start px-2 py-1 rounded-full border border-gray-100">
-              <Ionicons name="location" size={12} color="#EA580C" />
-              <Text
-                className="text-[11px] font-bold text-gray-700 ml-1 mr-1 max-w-[120px]"
-                numberOfLines={1}
-              >
-                {displayLocation}
-              </Text>
-              <Ionicons name="chevron-down" size={12} color="#9CA3AF" />
-            </View>
-          </TouchableOpacity>
-
-          {/* Right: Actions */}
-          <View className="flex-row items-start gap-4">
-            {/* Profile */}
-            <TouchableOpacity
-              onPress={() => router.push("/profile")}
-              className="items-center"
-            >
-              <View className="bg-gray-900 w-10 h-10 rounded-full items-center justify-center shadow-lg shadow-orange-200">
-                <Ionicons name="person" size={18} color="white" />
-              </View>
-              <Text className="text-[10px] font-bold text-transparent mt-1">
-                .
-              </Text>
-            </TouchableOpacity>
+                  {item.title === "QWIK" ? (
+                    <LottieView
+                      source={{
+                        uri: "https://lottie.host/3c3cae43-2f5a-4ff4-8e94-695b04f65270/YlL23dpNak.lottie",
+                      }}
+                      autoPlay
+                      loop
+                      speed={3}
+                      style={{ width: 32, height: 32, marginBottom: 2 }}
+                    />
+                  ) : item.title === "Eato" ? (
+                    <ExpoImage
+                      source={require("../assets/Eato.gif")}
+                      style={{ width: 38, height: 38, marginBottom: 2 }}
+                      contentFit="cover"
+                    />
+                  ) : item.title === "Star" ? (
+                    <ExpoImage
+                      source={require("../assets/star.gif")}
+                      style={{ width: 38, height: 38, marginBottom: 2 }}
+                      contentFit="cover"
+                    />
+                  ) : (
+                    <ExpoImage
+                      source={require("../assets/Bazar-icon.gif")}
+                      style={{ width: 38, height: 38, marginBottom: 2 }}
+                      contentFit="cover"
+                    />
+                  )}
+                  <Text
+                    className={`text-[11px] font-black ${
+                      isActive ? "text-orange-700" : "text-gray-700"
+                    }`}
+                    numberOfLines={1}
+                  >
+                    {item.title}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
+        </Animated.View>
+
+        {/* Middle Row: Location Only (No Brand) */}
+        <View className="px-5 pt-2 pb-3">
+          <TouchableOpacity className="flex-col" onPress={handleLocationPress}>
+            <View className="flex-row items-center mb-0.5">
+              <Ionicons
+                name="location"
+                size={18}
+                color="#000000"
+                className="mr-1"
+              />
+              <Text className="text-[12px] font-black text-black ml-1 mr-1">
+                Aapke Ghar tak {generateDeliveryTime()}
+              </Text>
+              <Ionicons name="chevron-down" size={14} color="#000000" />
+            </View>
+            <Text
+              className="text-[13px] font-medium text-gray-400 ml-6 mr-1"
+              numberOfLines={1}
+            >
+              {displayLocation}
+              {subLocation ? `, ${subLocation}` : ""}
+            </Text>
+          </TouchableOpacity>
         </View>
 
         {/* Search Bar - Floating effect */}
@@ -315,14 +363,24 @@ const Header = () => {
                 <Text className="text-xs text-gray-400">...</Text>
               </View>
             ) : null}
+            <TouchableOpacity
+              className="mx-1"
+              onPress={() => console.log("Mic pressed")}
+            >
+              <Ionicons name="mic" size={22} color="#000000" />
+            </TouchableOpacity>
             <View className="h-6 w-[1px] bg-gray-200 mx-2" />
             <TouchableOpacity onPress={() => setSearchQuery("")}>
-              <Ionicons name="close-circle" size={20} color={searchQuery ? "#64748B" : "transparent"} />
+              <Ionicons
+                name="close-circle"
+                size={20}
+                color={searchQuery ? "#64748B" : "transparent"}
+              />
             </TouchableOpacity>
           </View>
 
           {/* Search Dropdown */}
-          {showDropdown && (searchQuery.length > 2) && (
+          {showDropdown && searchQuery.length > 2 && (
             <View
               className="absolute top-16 left-5 right-5 bg-white rounded-xl shadow-lg border border-gray-100 p-2 max-h-80 overflow-hidden"
               style={{ zIndex: 9999, elevation: 10 }}
@@ -337,7 +395,9 @@ const Header = () => {
                     {/* Products */}
                     {searchResults.products?.length > 0 && (
                       <View className="mb-2">
-                        <Text className="text-xs font-bold text-gray-400 mb-1 px-2 uppercase tracking-wider">Products</Text>
+                        <Text className="text-xs font-bold text-gray-400 mb-1 px-2 uppercase tracking-wider">
+                          Products
+                        </Text>
                         {searchResults.products.map((product: any) => (
                           <TouchableOpacity
                             key={product.id}
@@ -347,11 +407,23 @@ const Header = () => {
                               router.push(`/product/${product.id}`);
                             }}
                           >
-                            <Ionicons name="search-outline" size={16} color="#9CA3AF" className="mr-2" />
+                            <Ionicons
+                              name="search-outline"
+                              size={16}
+                              color="#9CA3AF"
+                              className="mr-2"
+                            />
                             <View className="flex-1 ml-2">
-                              <Text className="text-sm text-gray-800 font-medium" numberOfLines={1}>{product.name}</Text>
+                              <Text
+                                className="text-sm text-gray-800 font-medium"
+                                numberOfLines={1}
+                              >
+                                {product.name}
+                              </Text>
                               {product.category && (
-                                <Text className="text-[10px] text-gray-500 mt-0.5">in {product.category}</Text>
+                                <Text className="text-[10px] text-gray-500 mt-0.5">
+                                  in {product.category}
+                                </Text>
                               )}
                             </View>
                           </TouchableOpacity>
@@ -362,7 +434,9 @@ const Header = () => {
                     {/* Categories */}
                     {searchResults.categories?.length > 0 && (
                       <View className="mb-2">
-                        <Text className="text-xs font-bold text-gray-400 mb-1 px-2 uppercase tracking-wider">Categories</Text>
+                        <Text className="text-xs font-bold text-gray-400 mb-1 px-2 uppercase tracking-wider">
+                          Categories
+                        </Text>
                         {searchResults.categories.map((cat: any, i: number) => (
                           <TouchableOpacity
                             key={i}
@@ -372,8 +446,18 @@ const Header = () => {
                               router.push(`/category/${cat.id}` as any);
                             }}
                           >
-                            <Ionicons name="apps-outline" size={16} color="#9CA3AF" className="mr-2" />
-                            <Text className="text-sm text-gray-800 ml-2 font-medium" numberOfLines={1}>{cat.name}</Text>
+                            <Ionicons
+                              name="apps-outline"
+                              size={16}
+                              color="#9CA3AF"
+                              className="mr-2"
+                            />
+                            <Text
+                              className="text-sm text-gray-800 ml-2 font-medium"
+                              numberOfLines={1}
+                            >
+                              {cat.name}
+                            </Text>
                           </TouchableOpacity>
                         ))}
                       </View>
@@ -382,27 +466,43 @@ const Header = () => {
                     {/* Subcategories */}
                     {searchResults.subcategories?.length > 0 && (
                       <View className="mb-2">
-                        <Text className="text-xs font-bold text-gray-400 mb-1 px-2 uppercase tracking-wider">Subcategories</Text>
-                        {searchResults.subcategories.map((sub: any, i: number) => (
-                          <TouchableOpacity
-                            key={i}
-                            className="flex-row items-center p-2 rounded-lg active:bg-orange-50"
-                            onPress={() => {
-                              setShowDropdown(false);
-                              router.push(`/category/${sub.id}` as any);
-                            }}
-                          >
-                            <Ionicons name="pricetag-outline" size={16} color="#9CA3AF" className="mr-2" />
-                            <Text className="text-sm text-gray-800 ml-2 font-medium" numberOfLines={1}>{sub.name}</Text>
-                          </TouchableOpacity>
-                        ))}
+                        <Text className="text-xs font-bold text-gray-400 mb-1 px-2 uppercase tracking-wider">
+                          Subcategories
+                        </Text>
+                        {searchResults.subcategories.map(
+                          (sub: any, i: number) => (
+                            <TouchableOpacity
+                              key={i}
+                              className="flex-row items-center p-2 rounded-lg active:bg-orange-50"
+                              onPress={() => {
+                                setShowDropdown(false);
+                                router.push(`/category/${sub.id}` as any);
+                              }}
+                            >
+                              <Ionicons
+                                name="pricetag-outline"
+                                size={16}
+                                color="#9CA3AF"
+                                className="mr-2"
+                              />
+                              <Text
+                                className="text-sm text-gray-800 ml-2 font-medium"
+                                numberOfLines={1}
+                              >
+                                {sub.name}
+                              </Text>
+                            </TouchableOpacity>
+                          ),
+                        )}
                       </View>
                     )}
 
                     {/* Brands */}
                     {searchResults.brands?.length > 0 && (
                       <View className="mb-2">
-                        <Text className="text-xs font-bold text-gray-400 mb-1 px-2 uppercase tracking-wider">Brands</Text>
+                        <Text className="text-xs font-bold text-gray-400 mb-1 px-2 uppercase tracking-wider">
+                          Brands
+                        </Text>
                         {searchResults.brands.map((brand: any, i: number) => (
                           <TouchableOpacity
                             key={i}
@@ -412,8 +512,18 @@ const Header = () => {
                               router.push(`/brand/${brand.name}` as any);
                             }}
                           >
-                            <Ionicons name="ribbon-outline" size={16} color="#9CA3AF" className="mr-2" />
-                            <Text className="text-sm text-gray-800 ml-2 font-medium" numberOfLines={1}>{brand.name}</Text>
+                            <Ionicons
+                              name="ribbon-outline"
+                              size={16}
+                              color="#9CA3AF"
+                              className="mr-2"
+                            />
+                            <Text
+                              className="text-sm text-gray-800 ml-2 font-medium"
+                              numberOfLines={1}
+                            >
+                              {brand.name}
+                            </Text>
                           </TouchableOpacity>
                         ))}
                       </View>
@@ -422,7 +532,9 @@ const Header = () => {
                     {/* Stores */}
                     {searchResults.stores?.length > 0 && (
                       <View className="mb-2">
-                        <Text className="text-xs font-bold text-gray-400 mb-1 px-2 uppercase tracking-wider">Stores</Text>
+                        <Text className="text-xs font-bold text-gray-400 mb-1 px-2 uppercase tracking-wider">
+                          Stores
+                        </Text>
                         {searchResults.stores.map((store: any, i: number) => (
                           <TouchableOpacity
                             key={i}
@@ -432,8 +544,18 @@ const Header = () => {
                               router.push(`/store/${store.id}` as any);
                             }}
                           >
-                            <Ionicons name="storefront-outline" size={16} color="#9CA3AF" className="mr-2" />
-                            <Text className="text-sm text-gray-800 ml-2 font-medium" numberOfLines={1}>{store.name}</Text>
+                            <Ionicons
+                              name="storefront-outline"
+                              size={16}
+                              color="#9CA3AF"
+                              className="mr-2"
+                            />
+                            <Text
+                              className="text-sm text-gray-800 ml-2 font-medium"
+                              numberOfLines={1}
+                            >
+                              {store.name}
+                            </Text>
                           </TouchableOpacity>
                         ))}
                       </View>
@@ -446,13 +568,20 @@ const Header = () => {
                         router.push(`/search?q=${searchQuery}` as any);
                       }}
                     >
-                      <Text className="text-orange-600 font-bold text-sm">See all {searchResults.total} results for "{searchQuery}"</Text>
+                      <Text className="text-orange-600 font-bold text-sm">
+                        See all {searchResults.total} results for "{searchQuery}
+                        "
+                      </Text>
                     </TouchableOpacity>
                   </>
                 ) : (
                   <View className="py-6 items-center">
-                    <Text className="text-gray-500 font-medium mb-1">No matches found</Text>
-                    <Text className="text-xs text-gray-400 text-center px-4">Try searching for products, categories, or brands</Text>
+                    <Text className="text-gray-500 font-medium mb-1">
+                      No matches found
+                    </Text>
+                    <Text className="text-xs text-gray-400 text-center px-4">
+                      Try searching for products, categories, or brands
+                    </Text>
                   </View>
                 )}
               </ScrollView>

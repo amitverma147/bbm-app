@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { Dimensions, Image, Text, TouchableOpacity, View } from "react-native";
 import Carousel from "react-native-reanimated-carousel";
 import { API_BASE_URL } from "../constants/Config";
+import { cachedFetch } from "../services/apiCache";
 
 const { width } = Dimensions.get("window");
 
@@ -31,13 +32,11 @@ const HeroSection = () => {
       setLoading(true);
 
       // 1. Try fetching hero banners specifically
-      let response = await fetch(`${API_BASE_URL}/banner/type/hero`);
-      let data = await response.json();
+      let data = await cachedFetch(`${API_BASE_URL}/banner/type/hero`);
 
       // 2. Fallback to all
-      if (!data.success || !data.banners || data.banners.length === 0) {
-        response = await fetch(`${API_BASE_URL}/banner/all`);
-        data = await response.json();
+      if (!data?.success || !data?.banners || data.banners.length === 0) {
+        data = await cachedFetch(`${API_BASE_URL}/banner/all`);
       }
 
       if (data.success && data.banners && data.banners.length > 0) {
@@ -113,7 +112,9 @@ const HeroSection = () => {
             onPress={() => handlePress(item)}
             style={{ width: "100%", height: "100%", padding: 0, margin: 0 }}
           >
-            <View style={{ width: "100%", height: "100%", padding: 0, margin: 0 }}>
+            <View
+              style={{ width: "100%", height: "100%", padding: 0, margin: 0 }}
+            >
               {item.image_url ? (
                 <Image
                   source={{ uri: item.image_url }}
@@ -125,7 +126,11 @@ const HeroSection = () => {
                   colors={getGradientColors(item.bgColor) as any}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
-                  style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
+                  style={{
+                    flex: 1,
+                    justifyContent: "center",
+                    alignItems: "center",
+                  }}
                 >
                   <Text className="text-white text-3xl font-bold text-center px-4">
                     {item.name}

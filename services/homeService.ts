@@ -1,20 +1,12 @@
 import { API_BASE_URL } from '../constants/Config';
+import { cachedFetch, getCached } from './apiCache';
 
 // Fetch active sections configuration
 export const getActiveSections = async () => {
     try {
         const url = `${API_BASE_URL}/product-sections/active`;
-        console.log('Fetching active sections from:', url);
-        const response = await fetch(url);
-        console.log('Active sections response status:', response.status);
-
-        if (!response.ok) {
-            const text = await response.text();
-            console.warn('Failed to fetch active sections:', text);
-            return getDefaultSections();
-        }
-        const data = await response.json();
-        console.log('Active sections data success:', data.success);
+        const data = await cachedFetch(url);
+        if (!data) return getDefaultSections();
         return data.success ? data.data : getDefaultSections();
     } catch (error) {
         console.error('Home service (sections) error:', error);
@@ -22,21 +14,27 @@ export const getActiveSections = async () => {
     }
 };
 
-// Generic fetcher for section data
+// Generic fetcher for section data — now uses cachedFetch for deduplication
 export const getSectionData = async (endpoint: string) => {
     try {
-        // Construct URL: handle if endpoint is full URL or relative
         const url = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
-        const response = await fetch(url);
-        if (!response.ok) return [];
-        const data = await response.json();
-        // Adjust based on your API response structure (data.products, data.data, or direct array)
+        const data = await cachedFetch(url);
+        if (!data) return [];
         return data.products || data.data || data || [];
     } catch (error) {
         console.error(`Home service (data) error for ${endpoint}:`, error);
         return [];
     }
 }
+
+// Synchronous cache check — returns cached products instantly or null
+export const getCachedSectionData = (endpoint: string): any[] | null => {
+    const url = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
+    const data = getCached(url);
+    if (!data) return null;
+    const products = data.products || data.data || data;
+    return Array.isArray(products) ? products : null;
+};
 
 // Fallback sections if API fails
 const getDefaultSections = () => [
@@ -45,3 +43,4 @@ const getDefaultSections = () => [
     { id: '3', component_name: 'NewArrivals', section_name: 'New Arrivals', display_order: 3 },
     { id: '4', component_name: 'BigBestMartDeals', section_name: 'Big Best Mart Deals', display_order: 4 },
 ];
+

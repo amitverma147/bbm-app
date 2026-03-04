@@ -1,12 +1,19 @@
 import { Feather, Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
-import { ScrollView, Text, TouchableOpacity, View, Alert, ActivityIndicator, Linking } from "react-native";
+import {
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
+  Alert,
+  ActivityIndicator,
+  Linking,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useAuth } from "../contexts/AuthContext";
-import { useWallet } from "../contexts/WalletContext";
-import EditProfileModal from "../components/profile/EditProfileModal";
-
+import { useAuth } from "../../contexts/AuthContext";
+import { useWallet } from "../../contexts/WalletContext";
+import EditProfileModal from "../../components/profile/EditProfileModal";
 
 const MenuItem = ({ icon, title, subtitle, onPress }: any) => (
   <TouchableOpacity
@@ -39,29 +46,25 @@ const Profile = () => {
   }, []);
 
   const handleLogout = async () => {
-    Alert.alert(
-      "Log Out",
-      "Are you sure you want to log out?",
-      [
-        {
-          text: "Cancel",
-          style: "cancel"
+    Alert.alert("Log Out", "Are you sure you want to log out?", [
+      {
+        text: "Cancel",
+        style: "cancel",
+      },
+      {
+        text: "Log Out",
+        onPress: async () => {
+          const result = await logout();
+          if (result.success) {
+            // Redirect happens automatically due to AuthContext in index.tsx/layout
+            // But we can force it just in case or show a message
+          } else {
+            Alert.alert("Error", result.error || "Failed to log out");
+          }
         },
-        {
-          text: "Log Out",
-          onPress: async () => {
-            const result = await logout();
-            if (result.success) {
-              // Redirect happens automatically due to AuthContext in index.tsx/layout
-              // But we can force it just in case or show a message
-            } else {
-              Alert.alert("Error", result.error || "Failed to log out");
-            }
-          },
-          style: "destructive"
-        }
-      ]
-    );
+        style: "destructive",
+      },
+    ]);
   };
 
   if (loading && !userProfile) {
@@ -114,7 +117,10 @@ const Profile = () => {
               <Text className="text-gray-500 font-medium tracking-wide">
                 {userData.phone}
               </Text>
-              <TouchableOpacity className="mt-2 flex-row items-center" onPress={() => setShowEditProfile(true)}>
+              <TouchableOpacity
+                className="mt-2 flex-row items-center"
+                onPress={() => setShowEditProfile(true)}
+              >
                 <Text className="text-orange-600 font-bold text-xs mr-1">
                   Edit Profile
                 </Text>
@@ -197,8 +203,9 @@ const Profile = () => {
                 <TouchableOpacity
                   onPress={() => router.push("/wallet")}
                   disabled={isFrozen}
-                  className={`bg-white px-5 py-2 rounded-xl shadow-sm active:bg-gray-100 ${isFrozen ? "opacity-50" : ""
-                    }`}
+                  className={`bg-white px-5 py-2 rounded-xl shadow-sm active:bg-gray-100 ${
+                    isFrozen ? "opacity-50" : ""
+                  }`}
                 >
                   <Text className="text-xs font-black text-gray-900 uppercase tracking-wider">
                     Add Money
@@ -215,13 +222,18 @@ const Profile = () => {
             <MenuItem
               icon={<Feather name="heart" size={20} color="#4B5563" />}
               title="Your Wishlist"
-              onPress={() => router.push('/wishlist')}
+              onPress={() => router.push("/wishlist")}
             />
             <MenuItem
               icon={<Ionicons name="card-outline" size={20} color="#4B5563" />}
               title="E-Gift Cards"
               subtitle="Coming soon"
-              onPress={() => Alert.alert('Coming Soon', 'E-Gift Cards will be available soon!')}
+              onPress={() =>
+                Alert.alert(
+                  "Coming Soon",
+                  "E-Gift Cards will be available soon!",
+                )
+              }
             />
             <MenuItem
               icon={
@@ -229,7 +241,7 @@ const Profile = () => {
               }
               title="Saved Addresses"
               subtitle="Manage your saved addresses"
-              onPress={() => router.push('/addresses')}
+              onPress={() => router.push("/addresses")}
             />
             <MenuItem
               icon={
@@ -245,7 +257,7 @@ const Profile = () => {
               }
               title="Payment Methods"
               subtitle="Wallet & online payments"
-              onPress={() => router.push('/wallet')}
+              onPress={() => router.push("/wallet")}
             />
           </View>
 
@@ -263,7 +275,12 @@ const Profile = () => {
               }
               title="Notifications"
               subtitle="Manage push notifications"
-              onPress={() => Alert.alert('Notifications', 'Notification preferences coming soon!')}
+              onPress={() =>
+                Alert.alert(
+                  "Notifications",
+                  "Notification preferences coming soon!",
+                )
+              }
             />
             <MenuItem
               icon={
@@ -271,7 +288,9 @@ const Profile = () => {
               }
               title="Language"
               subtitle="English"
-              onPress={() => Alert.alert('Language', 'Currently only English is supported.')}
+              onPress={() =>
+                Alert.alert("Language", "Currently only English is supported.")
+              }
             />
             <MenuItem
               icon={
@@ -283,7 +302,9 @@ const Profile = () => {
               }
               title="About Us"
               subtitle="Learn more about BigBestMart"
-              onPress={() => Linking.openURL('https://www.bigbestmart.com/pages/about-us')}
+              onPress={() =>
+                Linking.openURL("https://www.bigbestmart.com/pages/about-us")
+              }
             />
           </View>
 

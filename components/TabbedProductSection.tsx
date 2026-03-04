@@ -8,6 +8,7 @@ import {
   Image,
 } from "react-native";
 import { API_BASE_URL } from "../constants/Config";
+import { cachedFetch } from "../services/apiCache";
 import ProductCard from "./ProductCard";
 
 interface TabbedProductSectionProps {
@@ -38,10 +39,9 @@ const TabbedProductSection = ({
   const fetchSubcategories = async () => {
     try {
       // Hardcoded for 'mega_monsoon' as per web code logic, or we can make it dynamic based on section
-      const response = await fetch(
+      const data = await cachedFetch(
         `${API_BASE_URL}/categories/section/mega_monsoon/categories`,
       );
-      const data = await response.json();
 
       if (data.success && data.categories) {
         // Flatten subcategories
@@ -69,10 +69,9 @@ const TabbedProductSection = ({
   const fetchProducts = async (subcatId: string) => {
     setProductsLoading(true);
     try {
-      const response = await fetch(
+      const data = await cachedFetch(
         `${API_BASE_URL}/productsroute/subcategory/${subcatId}`,
       );
-      const data = await response.json();
       if (data.success && data.products) {
         setProducts(data.products);
       } else {

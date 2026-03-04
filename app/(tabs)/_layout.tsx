@@ -1,4 +1,4 @@
-import { Feather, MaterialIcons } from "@expo/vector-icons";
+import { Feather, MaterialIcons, Ionicons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
 import React from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -29,7 +29,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          href: "/",
+          href: null,
           title: "Home",
           tabBarIcon: ({ color }) => (
             <Feather name="home" size={24} color={color} />
@@ -56,23 +56,33 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="profile"
+        options={{
+          title: "Profile",
+          tabBarIcon: ({ color }) => (
+            <Feather name="user" size={24} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="cart"
         options={{
+          href: null,
           title: "Cart",
           tabBarIcon: ({ color }) => (
             <Feather name="shopping-cart" size={24} color={color} />
           ),
         }}
       />
-      {/* <Tabs.Screen
+      <Tabs.Screen
         name="menu"
         options={{
           title: "Menu",
           tabBarIcon: ({ color }) => (
-            <Feather name="menu" size={24} color={color} />
+            <Ionicons name="menu-outline" size={28} color={color} />
           ),
         }}
-      /> */}
+      />
     </Tabs>
   );
 }

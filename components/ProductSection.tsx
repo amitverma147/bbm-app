@@ -18,22 +18,18 @@ const ProductSection = ({ title, data, gridLayout }: ProductSectionProps) => {
     <View className="mb-6">
       <View className="flex-row items-center justify-between px-4 mb-3">
         <Text className="text-lg font-bold text-gray-900">{title}</Text>
-
       </View>
-
       {gridLayout ? (
-        <View className="px-4 flex-row flex-wrap justify-between">
+        <View className="px-3 flex-row flex-wrap justify-between">
           {Array.isArray(data) &&
             data.slice(0, 8).map((item) => (
-              <View key={item.id} className="w-[31%] mb-4">
+              <View key={item.id} className="w-[32%] mb-3">
                 <ProductCard item={item} onAdd={addToCart} gridStyle={true} />
               </View>
             ))}
-
-          {/* 9th "See All" Box */}
           {data.length > 8 && (
             <TouchableOpacity
-              className="w-[31%] mb-4 rounded-xl bg-[#FE3A30] items-center justify-center p-4 shadow-sm"
+              className="w-[32%] mb-3 rounded-xl bg-[#FE3A30] items-center justify-center p-4 shadow-sm"
               style={{ minHeight: 230 }}
             >
               <Text className="text-white font-bold text-base mb-4 text-center">

@@ -9,15 +9,22 @@ import {
   ScrollView,
   Text,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import YoutubePlayer from "react-native-youtube-iframe";
 
 import ProductCard from "../../components/ProductCard";
 import { API_BASE_URL } from "../../constants/Config";
 import { useCart } from "../../contexts/CartContext";
-import { addToWishlist, removeFromWishlist, checkWishlistItem } from "../../services/wishlistService";
+import {
+  addToWishlist,
+  removeFromWishlist,
+  checkWishlistItem,
+} from "../../services/wishlistService";
 
 const { width, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
@@ -96,14 +103,17 @@ export default function SingleProductPage() {
               .then((res) => res.json())
               .then((relData) => {
                 if (relData.success) {
-                  setRelatedProducts(
-                    relData.data.filter(
-                      (p: any) => p.id !== prodData.product.id,
-                    ),
-                  );
+                  const relProducts = relData.products || relData.data || [];
+                  if (Array.isArray(relProducts)) {
+                    setRelatedProducts(
+                      relProducts.filter(
+                        (p: any) => p.id !== prodData.product.id,
+                      ),
+                    );
+                  }
                 }
               })
-              .catch((e) => console.log(e));
+              .catch((e) => console.log("Related products error:", e));
           }
         } else {
           setError(prodData.error || "Product not found");
@@ -144,18 +154,21 @@ export default function SingleProductPage() {
         if (result.success) {
           setIsWishlisted(false);
         } else {
-          Alert.alert('Error', result.error || 'Failed to remove from wishlist');
+          Alert.alert(
+            "Error",
+            result.error || "Failed to remove from wishlist",
+          );
         }
       } else {
         const result = await addToWishlist(product.id);
         if (result.success) {
           setIsWishlisted(true);
         } else {
-          Alert.alert('Error', result.error || 'Failed to add to wishlist');
+          Alert.alert("Error", result.error || "Failed to add to wishlist");
         }
       }
     } catch (error) {
-      Alert.alert('Error', 'Something went wrong');
+      Alert.alert("Error", "Something went wrong");
     } finally {
       setWishlistLoading(false);
     }
@@ -179,26 +192,54 @@ export default function SingleProductPage() {
 
   const checkIsOutOfStock = (variant: any, productObj: any) => {
     if (variant) {
-      if (variant.inStock !== undefined && variant.inStock === false) return true;
-      if (variant.availableStock !== undefined && variant.availableStock <= 0) return true;
+      if (variant.inStock !== undefined && variant.inStock === false)
+        return true;
+      if (variant.availableStock !== undefined && variant.availableStock <= 0)
+        return true;
       if (variant.stockInfo || variant.stock_info) {
-        const isStockFalse = (variant.stockInfo?.in_stock ?? variant.stock_info?.in_stock) === false;
-        const isAvailableZero = (variant.stockInfo?.available_stock ?? variant.stock_info?.available_stock ?? 1) <= 0;
+        const isStockFalse =
+          (variant.stockInfo?.in_stock ?? variant.stock_info?.in_stock) ===
+          false;
+        const isAvailableZero =
+          (variant.stockInfo?.available_stock ??
+            variant.stock_info?.available_stock ??
+            1) <= 0;
         if (isStockFalse || isAvailableZero) return true;
       }
-      if (variant.variant_stock !== undefined && variant.variant_stock <= 0) return true;
+      if (variant.variant_stock !== undefined && variant.variant_stock <= 0)
+        return true;
       if (variant.stock !== undefined && variant.stock <= 0) return true;
 
-      if (variant.inStock === true || variant.availableStock > 0 || variant.stock > 0 || variant.variant_stock > 0) return false;
+      if (
+        variant.inStock === true ||
+        variant.availableStock > 0 ||
+        variant.stock > 0 ||
+        variant.variant_stock > 0
+      )
+        return false;
     }
 
     if (productObj) {
-      if (productObj.inStock !== undefined && productObj.inStock === false) return true;
-      if (productObj.availableStock !== undefined && productObj.availableStock <= 0) return true;
-      if ((productObj as any).stockQuantity !== undefined && (productObj as any).stockQuantity <= 0) return true;
+      if (productObj.inStock !== undefined && productObj.inStock === false)
+        return true;
+      if (
+        productObj.availableStock !== undefined &&
+        productObj.availableStock <= 0
+      )
+        return true;
+      if (
+        (productObj as any).stockQuantity !== undefined &&
+        (productObj as any).stockQuantity <= 0
+      )
+        return true;
       if (productObj.stockInfo || productObj.stock_info) {
-        const isStockFalse = (productObj.stockInfo?.in_stock ?? productObj.stock_info?.in_stock) === false;
-        const isAvailableZero = (productObj.stockInfo?.available_stock ?? productObj.stock_info?.available_stock ?? 1) <= 0;
+        const isStockFalse =
+          (productObj.stockInfo?.in_stock ??
+            productObj.stock_info?.in_stock) === false;
+        const isAvailableZero =
+          (productObj.stockInfo?.available_stock ??
+            productObj.stock_info?.available_stock ??
+            1) <= 0;
         if (isStockFalse || isAvailableZero) return true;
       }
       if (productObj.stock !== undefined && productObj.stock <= 0) return true;
@@ -209,29 +250,43 @@ export default function SingleProductPage() {
 
   const isOutOfStock = checkIsOutOfStock(selectedVariant, product);
 
-  const stockInfo = selectedVariant?.stock_info || product?.stock_info || { available_stock: 0 };
-  const availableStock = stockInfo.available_stock !== undefined ? stockInfo.available_stock : (product?.stock || 0);
+  const stockInfo = selectedVariant?.stock_info ||
+    product?.stock_info || { available_stock: 0 };
+  const availableStock =
+    stockInfo.available_stock !== undefined
+      ? stockInfo.available_stock
+      : product?.stock || 0;
 
   const inStock = !isOutOfStock;
+
+  // Helper to resolve relative image URLs to full URLs
+  const resolveImageUrl = (url: string | null | undefined): string => {
+    if (!url) return "";
+    if (url.startsWith("http")) return url;
+    const baseUrl = API_BASE_URL.replace("/api", "");
+    return `${baseUrl}${url.startsWith("/") ? "" : "/"}${url}`;
+  };
 
   const mediaItems = useMemo(() => {
     const items: any[] = [];
     if (selectedVariant?.image_url || selectedVariant?.variant_image_url) {
       items.push({
         type: "image",
-        src: selectedVariant.image_url || selectedVariant.variant_image_url,
+        src: resolveImageUrl(
+          selectedVariant.image_url || selectedVariant.variant_image_url,
+        ),
       });
     }
     if (product?.media?.length) {
       items.push(
         ...product.media.map((m: any) => ({
           type: m.media_type || "image",
-          src: m.url,
+          src: resolveImageUrl(m.url),
         })),
       );
     }
     if (items.length === 0) {
-      items.push({ type: "image", src: product?.image || "" });
+      items.push({ type: "image", src: resolveImageUrl(product?.image) });
     }
     return items;
   }, [product, selectedVariant]);
@@ -254,7 +309,10 @@ export default function SingleProductPage() {
     }
 
     if (quantityInCart >= availableStock) {
-      Alert.alert("Max Stock", `You cannot add more than ${availableStock} of this item.`);
+      Alert.alert(
+        "Max Stock",
+        `You cannot add more than ${availableStock} of this item.`,
+      );
       return;
     }
 
@@ -283,7 +341,10 @@ export default function SingleProductPage() {
     if (quantityInCart < availableStock) {
       handleAddToCart();
     } else {
-      Alert.alert("Max Stock", `You cannot add more than ${availableStock} of this item.`);
+      Alert.alert(
+        "Max Stock",
+        `You cannot add more than ${availableStock} of this item.`,
+      );
     }
   };
 
@@ -302,7 +363,10 @@ export default function SingleProductPage() {
 
   if (loading) {
     return (
-      <SafeAreaView className="flex-1 bg-white" edges={['top', 'left', 'right']}>
+      <SafeAreaView
+        className="flex-1 bg-white"
+        edges={["top", "left", "right"]}
+      >
         <Stack.Screen options={{ headerShown: false }} />
         <View className="flex-row items-center px-4 py-3 border-b border-gray-100">
           <TouchableOpacity onPress={() => router.back()} className="p-2 -ml-2">
@@ -311,7 +375,9 @@ export default function SingleProductPage() {
         </View>
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator size="large" color="#EA580C" />
-          <Text className="mt-4 text-gray-500 font-medium text-sm">Loading product...</Text>
+          <Text className="mt-4 text-gray-500 font-medium text-sm">
+            Loading product...
+          </Text>
         </View>
       </SafeAreaView>
     );
@@ -319,19 +385,26 @@ export default function SingleProductPage() {
 
   if (error || !product) {
     return (
-      <SafeAreaView className="flex-1 bg-white" edges={['top', 'left', 'right']}>
+      <SafeAreaView
+        className="flex-1 bg-white"
+        edges={["top", "left", "right"]}
+      >
         <Stack.Screen options={{ headerShown: false }} />
         <View className="flex-row items-center px-4 py-3 border-b border-gray-100">
           <TouchableOpacity onPress={() => router.back()} className="p-2 -ml-2">
             <Ionicons name="arrow-back" size={24} color="#1F2937" />
           </TouchableOpacity>
-          <Text className="flex-1 ml-2 text-lg font-bold text-gray-900">Product</Text>
+          <Text className="flex-1 ml-2 text-lg font-bold text-gray-900">
+            Product
+          </Text>
         </View>
         <View className="flex-1 items-center justify-center px-8">
           <View className="w-20 h-20 rounded-full bg-gray-100 items-center justify-center mb-4">
             <Ionicons name="cube-outline" size={36} color="#9CA3AF" />
           </View>
-          <Text className="text-gray-800 text-lg font-bold text-center mb-2">Product Not Found</Text>
+          <Text className="text-gray-800 text-lg font-bold text-center mb-2">
+            Product Not Found
+          </Text>
           <Text className="text-gray-400 text-sm text-center mb-6">
             {error || "This product is unavailable or may have been removed."}
           </Text>
@@ -422,7 +495,7 @@ export default function SingleProductPage() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-white" edges={['top', 'left', 'right']}>
+    <SafeAreaView className="flex-1 bg-white" edges={["top", "left", "right"]}>
       <Stack.Screen options={{ headerShown: false }} />
       <ScrollView
         className="flex-1"
@@ -449,7 +522,7 @@ export default function SingleProductPage() {
             <TouchableOpacity
               onPress={handleToggleWishlist}
               disabled={wishlistLoading}
-              className={wishlistLoading ? 'opacity-50' : ''}
+              className={wishlistLoading ? "opacity-50" : ""}
             >
               {wishlistLoading ? (
                 <ActivityIndicator size="small" color="#ef4444" />
@@ -524,16 +597,18 @@ export default function SingleProductPage() {
                   <TouchableOpacity
                     key={v.id}
                     onPress={() => setSelectedVariant(v)}
-                    className={`min-w-[80px] h-[64px] rounded-xl items-center justify-center border-2 ${selectedVariant?.id === v.id
-                      ? "border-[#22c55e] bg-green-50/50"
-                      : "border-[#e5e7eb] bg-white"
-                      }`}
+                    className={`min-w-[80px] h-[64px] rounded-xl items-center justify-center border-2 ${
+                      selectedVariant?.id === v.id
+                        ? "border-[#22c55e] bg-green-50/50"
+                        : "border-[#e5e7eb] bg-white"
+                    }`}
                   >
                     <Text
-                      className={`font-semibold text-[13px] ${selectedVariant?.id === v.id
-                        ? "text-[#15803d]"
-                        : "text-gray-700"
-                        }`}
+                      className={`font-semibold text-[13px] ${
+                        selectedVariant?.id === v.id
+                          ? "text-[#15803d]"
+                          : "text-gray-700"
+                      }`}
                     >
                       {v.title}
                     </Text>
@@ -549,17 +624,17 @@ export default function SingleProductPage() {
           {/* Store Badge */}
           {(product.product_recommended_store?.[0]?.recommended_store ||
             product.store) && (
-              <TouchableOpacity className="bg-[#eff6ff] self-start px-3 py-2 rounded-xl flex-row items-center gap-1.5 mb-6">
-                <Text className="text-[11px] font-bold text-gray-500 tracking-wide uppercase">
-                  STORE:
-                </Text>
-                <Text className="text-[13px] font-bold text-gray-900 ml-1">
-                  {product.product_recommended_store?.[0]?.recommended_store
-                    ?.name || product.store?.name}
-                </Text>
-                <Ionicons name="chevron-forward" size={12} color="#111827" />
-              </TouchableOpacity>
-            )}
+            <TouchableOpacity className="bg-[#eff6ff] self-start px-3 py-2 rounded-xl flex-row items-center gap-1.5 mb-6">
+              <Text className="text-[11px] font-bold text-gray-500 tracking-wide uppercase">
+                STORE:
+              </Text>
+              <Text className="text-[13px] font-bold text-gray-900 ml-1">
+                {product.product_recommended_store?.[0]?.recommended_store
+                  ?.name || product.store?.name}
+              </Text>
+              <Ionicons name="chevron-forward" size={12} color="#111827" />
+            </TouchableOpacity>
+          )}
 
           <View className="border-t border-b border-gray-100 py-4 mb-6">
             <Text className="text-[14px] text-gray-500 font-medium">
@@ -785,32 +860,79 @@ export default function SingleProductPage() {
         // subtle top shadow
       >
         {/* thin top shadow line */}
-        <View style={{ height: 1, backgroundColor: "#f0f0f0", marginBottom: 10 }} />
+        <View
+          style={{ height: 1, backgroundColor: "#f0f0f0", marginBottom: 10 }}
+        />
 
         <View className="flex-row items-center">
           {/* ── Left: Price block ── */}
           <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 11, color: "#9ca3af", fontWeight: "600", marginBottom: 1 }}>
+            <Text
+              style={{
+                fontSize: 11,
+                color: "#9ca3af",
+                fontWeight: "600",
+                marginBottom: 1,
+              }}
+            >
               Total Price
             </Text>
-            <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 6 }}>
-              <Text style={{ fontSize: 22, fontWeight: "900", color: "#111827", letterSpacing: -0.5 }}>
+            <View
+              style={{ flexDirection: "row", alignItems: "flex-end", gap: 6 }}
+            >
+              <Text
+                style={{
+                  fontSize: 22,
+                  fontWeight: "900",
+                  color: "#111827",
+                  letterSpacing: -0.5,
+                }}
+              >
                 ₹{parseFloat(currentPrice).toFixed(0)}
               </Text>
               {currentOldPrice > currentPrice && (
-                <Text style={{ fontSize: 13, color: "#9ca3af", textDecorationLine: "line-through", marginBottom: 3 }}>
+                <Text
+                  style={{
+                    fontSize: 13,
+                    color: "#9ca3af",
+                    textDecorationLine: "line-through",
+                    marginBottom: 3,
+                  }}
+                >
                   ₹{parseFloat(currentOldPrice).toFixed(0)}
                 </Text>
               )}
             </View>
             {currentOldPrice > currentPrice && (
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 1 }}>
-                <View style={{ backgroundColor: "#dcfce7", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
-                  <Text style={{ fontSize: 10, color: "#16a34a", fontWeight: "800" }}>
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 4,
+                  marginTop: 1,
+                }}
+              >
+                <View
+                  style={{
+                    backgroundColor: "#dcfce7",
+                    paddingHorizontal: 6,
+                    paddingVertical: 2,
+                    borderRadius: 4,
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 10,
+                      color: "#16a34a",
+                      fontWeight: "800",
+                    }}
+                  >
                     {currentDiscountPercentage}% OFF
                   </Text>
                 </View>
-                <Text style={{ fontSize: 10, color: "#9ca3af" }}>incl. taxes</Text>
+                <Text style={{ fontSize: 10, color: "#9ca3af" }}>
+                  incl. taxes
+                </Text>
               </View>
             )}
           </View>
@@ -819,53 +941,126 @@ export default function SingleProductPage() {
           <View style={{ flex: 1.2, flexDirection: "row", gap: 8 }}>
             {!inStock ? (
               /* Out of Stock */
-              <View style={{
-                flex: 1, height: 52, borderRadius: 14,
-                backgroundColor: "#f3f4f6", borderWidth: 1, borderColor: "#e5e7eb",
-                alignItems: "center", justifyContent: "center",
-              }}>
-                
-                <Text style={{ fontSize: 11, fontWeight: "700", color: "#9ca3af", marginTop: 2, letterSpacing: 0.3 }}>
+              <View
+                style={{
+                  flex: 1,
+                  height: 52,
+                  borderRadius: 14,
+                  backgroundColor: "#f3f4f6",
+                  borderWidth: 1,
+                  borderColor: "#e5e7eb",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 11,
+                    fontWeight: "700",
+                    color: "#9ca3af",
+                    marginTop: 2,
+                    letterSpacing: 0.3,
+                  }}
+                >
                   Out of Stock
                 </Text>
               </View>
             ) : quantityInCart > 0 ? (
               <>
                 {/* Qty stepper */}
-                <View style={{
-                  flex: 1, height: 52, borderRadius: 14,
-                  borderWidth: 1.5, borderColor: "#FF6B00",
-                  flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-                  paddingHorizontal: 4, backgroundColor: "#fff8f5",
-                }}>
+                <View
+                  style={{
+                    flex: 1,
+                    height: 52,
+                    borderRadius: 14,
+                    borderWidth: 1.5,
+                    borderColor: "#FF6B00",
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    paddingHorizontal: 4,
+                    backgroundColor: "#fff8f5",
+                  }}
+                >
                   <TouchableOpacity
                     onPress={handleRemoveFromCart}
-                    style={{ width: 36, height: "100%", alignItems: "center", justifyContent: "center" }}
+                    style={{
+                      width: 36,
+                      height: "100%",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
                   >
-                    <Text style={{ fontSize: 22, fontWeight: "700", color: "#FF6B00", lineHeight: 26 }}>−</Text>
+                    <Text
+                      style={{
+                        fontSize: 22,
+                        fontWeight: "700",
+                        color: "#FF6B00",
+                        lineHeight: 26,
+                      }}
+                    >
+                      −
+                    </Text>
                   </TouchableOpacity>
-                  <Text style={{ fontSize: 16, fontWeight: "800", color: "#111827", minWidth: 20, textAlign: "center" }}>
+                  <Text
+                    style={{
+                      fontSize: 16,
+                      fontWeight: "800",
+                      color: "#111827",
+                      minWidth: 20,
+                      textAlign: "center",
+                    }}
+                  >
                     {quantityInCart}
                   </Text>
                   <TouchableOpacity
                     onPress={handleAddToCart}
-                    style={{ width: 36, height: "100%", alignItems: "center", justifyContent: "center" }}
+                    style={{
+                      width: 36,
+                      height: "100%",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
                   >
-                    <Text style={{ fontSize: 22, fontWeight: "700", color: "#FF6B00", lineHeight: 26 }}>+</Text>
+                    <Text
+                      style={{
+                        fontSize: 22,
+                        fontWeight: "700",
+                        color: "#FF6B00",
+                        lineHeight: 26,
+                      }}
+                    >
+                      +
+                    </Text>
                   </TouchableOpacity>
                 </View>
                 {/* Buy Now */}
                 <TouchableOpacity
                   onPress={handleBuyNow}
                   style={{
-                    flex: 1, height: 52, borderRadius: 14,
+                    flex: 1,
+                    height: 52,
+                    borderRadius: 14,
                     backgroundColor: "#FF6B00",
-                    alignItems: "center", justifyContent: "center",
-                    shadowColor: "#FF6B00", shadowOpacity: 0.35, shadowRadius: 8, shadowOffset: { width: 0, height: 4 },
+                    alignItems: "center",
+                    justifyContent: "center",
+                    shadowColor: "#FF6B00",
+                    shadowOpacity: 0.35,
+                    shadowRadius: 8,
+                    shadowOffset: { width: 0, height: 4 },
                     elevation: 5,
                   }}
                 >
-                  <Text style={{ color: "#fff", fontWeight: "800", fontSize: 13, letterSpacing: 0.3 }}>Buy Now</Text>
+                  <Text
+                    style={{
+                      color: "#fff",
+                      fontWeight: "800",
+                      fontSize: 13,
+                      letterSpacing: 0.3,
+                    }}
+                  >
+                    Buy Now
+                  </Text>
                 </TouchableOpacity>
               </>
             ) : (
@@ -874,28 +1069,58 @@ export default function SingleProductPage() {
                 <TouchableOpacity
                   onPress={handleAddToCart}
                   style={{
-                    flex: 1, height: 52, borderRadius: 14,
-                    borderWidth: 1.5, borderColor: "#FF6B00",
+                    flex: 1,
+                    height: 52,
+                    borderRadius: 14,
+                    borderWidth: 1.5,
+                    borderColor: "#FF6B00",
                     backgroundColor: "#fff8f5",
-                    alignItems: "center", justifyContent: "center", gap: 2,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 2,
                   }}
                 >
                   <Ionicons name="bag-add-outline" size={15} color="#FF6B00" />
-                  <Text style={{ color: "#FF6B00", fontWeight: "800", fontSize: 11, letterSpacing: 0.3 }}>Add to Cart</Text>
+                  <Text
+                    style={{
+                      color: "#FF6B00",
+                      fontWeight: "800",
+                      fontSize: 11,
+                      letterSpacing: 0.3,
+                    }}
+                  >
+                    Add to Cart
+                  </Text>
                 </TouchableOpacity>
                 {/* Buy Now */}
                 <TouchableOpacity
                   onPress={handleBuyNow}
                   style={{
-                    flex: 1, height: 52, borderRadius: 14,
+                    flex: 1,
+                    height: 52,
+                    borderRadius: 14,
                     backgroundColor: "#FF6B00",
-                    alignItems: "center", justifyContent: "center", gap: 2,
-                    shadowColor: "#FF6B00", shadowOpacity: 0.35, shadowRadius: 8, shadowOffset: { width: 0, height: 4 },
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 2,
+                    shadowColor: "#FF6B00",
+                    shadowOpacity: 0.35,
+                    shadowRadius: 8,
+                    shadowOffset: { width: 0, height: 4 },
                     elevation: 5,
                   }}
                 >
                   <Ionicons name="flash" size={14} color="#fff" />
-                  <Text style={{ color: "#fff", fontWeight: "800", fontSize: 11, letterSpacing: 0.3 }}>Buy Now</Text>
+                  <Text
+                    style={{
+                      color: "#fff",
+                      fontWeight: "800",
+                      fontSize: 11,
+                      letterSpacing: 0.3,
+                    }}
+                  >
+                    Buy Now
+                  </Text>
                 </TouchableOpacity>
               </>
             )}

@@ -1,5 +1,6 @@
 import React, { memo, useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, FlatList, View } from "react-native";
+import { ActivityIndicator, View } from "react-native";
+import Animated from "react-native-reanimated";
 import { getActiveSections } from "../services/homeService";
 import BrandVista from "./BrandVista";
 import CategoriesGrid from "./CategoriesGrid";
@@ -35,12 +36,17 @@ const DualDealsWrapper = memo(() => (
     sectionRightKey="dual_deals_right"
   />
 ));
-const MegaMonsoonWrapper = memo((props: any) => <TabbedProductSection {...props} />);
+const MegaMonsoonWrapper = memo((props: any) => (
+  <TabbedProductSection {...props} />
+));
 const BigBestMartDealsWrapper = memo((props: any) => (
   <DynamicProductSection {...props} endpoint="/productsroute/super-saver" />
 ));
 const QuickPicksWrapper = memo((props: any) => (
-  <DynamicProductSection {...props} endpoint="/productsroute/super-saver?limit=50" />
+  <DynamicProductSection
+    {...props}
+    endpoint="/productsroute/super-saver?limit=50"
+  />
 ));
 const EverydayEssentialsWrapper = memo((props: any) => (
   <DynamicProductSection {...props} endpoint="/productsroute/top-products" />
@@ -92,8 +98,10 @@ const PRIORITY_SECTIONS = ["QuickAccess", "HeroSection", "DynamicMegaSale"];
 
 const DynamicHome = ({
   ListHeaderComponent,
+  onScroll,
 }: {
   ListHeaderComponent?: React.ReactElement;
+  onScroll?: (event: any) => void;
 }) => {
   const [sections, setSections] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -179,18 +187,20 @@ const DynamicHome = ({
 
   return (
     <View className="flex-1 bg-white">
-      <FlatList
+      <Animated.FlatList
         ListHeaderComponent={ListHeaderComponent}
         data={sections}
         renderItem={renderItem}
         keyExtractor={keyExtractor}
-        initialNumToRender={4}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
+        initialNumToRender={3}
         maxToRenderPerBatch={2}
-        windowSize={7}
+        windowSize={3}
         removeClippedSubviews={true}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 100, padding: 0, margin: 0 }}
-        updateCellsBatchingPeriod={100}
+        updateCellsBatchingPeriod={150}
       />
     </View>
   );

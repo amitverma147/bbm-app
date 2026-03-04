@@ -1,4 +1,5 @@
 import { API_BASE_URL } from '../constants/Config';
+import { cachedFetch } from './apiCache';
 
 // TypeScript Interfaces
 export interface Group {
@@ -21,20 +22,15 @@ export interface Brand {
     image_url: string;
 }
 
-// Add helper for mapped category
+// Add helper for mapped category — cached
 export const getMappedCategoryForSection = async (sectionKey: string) => {
     try {
-        const response = await fetch(
-            `${API_BASE_URL}/section-mappings/${sectionKey}/categories?exclude_inferred=true`
-        );
-        if (response.ok) {
-            const data = await response.json();
-            if (data.success && data.categories && data.categories.length > 0) {
-                // Return the ID of the first mapped category
-                return {
-                    id: data.categories[0].category_id || data.categories[0].id
-                };
-            }
+        const url = `${API_BASE_URL}/section-mappings/${sectionKey}/categories?exclude_inferred=true`;
+        const data = await cachedFetch(url);
+        if (data?.success && data.categories && data.categories.length > 0) {
+            return {
+                id: data.categories[0].category_id || data.categories[0].id
+            };
         }
     } catch (error) {
         console.error(`Error fetching category mapping for ${sectionKey}:`, error);
@@ -42,15 +38,13 @@ export const getMappedCategoryForSection = async (sectionKey: string) => {
     return null;
 };
 
+// Categories hierarchy — cached (rarely changes)
 export const getCategoriesHierarchy = async () => {
     try {
-        const response = await fetch(`${API_BASE_URL}/categories/hierarchy`);
-        if (!response.ok) {
-            console.warn('Categories hierarchy API failed');
-            return { success: false, categories: [] };
-        }
-        const data = await response.json();
-        return data; // Expected { success: true, categories: [...] }
+        const url = `${API_BASE_URL}/categories/hierarchy`;
+        const data = await cachedFetch(url);
+        if (!data) return { success: false, categories: [] };
+        return data;
     } catch (error) {
         console.error('Categories hierarchy service error:', error);
         return { success: false, categories: [] };
@@ -59,12 +53,9 @@ export const getCategoriesHierarchy = async () => {
 
 export const getCategories = async () => {
     try {
-        const response = await fetch(`${API_BASE_URL}/categories`);
-        if (!response.ok) {
-            console.warn('Categories API failed');
-            return [];
-        }
-        const data = await response.json();
+        const url = `${API_BASE_URL}/categories`;
+        const data = await cachedFetch(url);
+        if (!data) return [];
         return data.categories || data;
     } catch (error) {
         console.error('Categories service error:', error);
@@ -74,13 +65,9 @@ export const getCategories = async () => {
 
 export const getGroupsBySubcategory = async (subcategoryId: string): Promise<Group[]> => {
     try {
-        const response = await fetch(`${API_BASE_URL}/categories/groups/subcategory/${subcategoryId}`);
-        if (!response.ok) {
-            console.warn('Groups API failed');
-            return [];
-        }
-        const data = await response.json();
-        return data.success && data.groups ? data.groups : [];
+        const url = `${API_BASE_URL}/categories/groups/subcategory/${subcategoryId}`;
+        const data = await cachedFetch(url);
+        return data?.success && data.groups ? data.groups : [];
     } catch (error) {
         console.error('Error fetching groups by subcategory:', error);
         return [];
@@ -89,13 +76,9 @@ export const getGroupsBySubcategory = async (subcategoryId: string): Promise<Gro
 
 export const getBrands = async (): Promise<Brand[]> => {
     try {
-        const response = await fetch(`${API_BASE_URL}/brands/list`);
-        if (!response.ok) {
-            console.warn('Brands API failed');
-            return [];
-        }
-        const data = await response.json();
-        return data.success && data.brands ? data.brands : [];
+        const url = `${API_BASE_URL}/brands/list`;
+        const data = await cachedFetch(url);
+        return data?.success && data.brands ? data.brands : [];
     } catch (error) {
         console.error('Error fetching brands:', error);
         return [];

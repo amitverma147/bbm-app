@@ -11,6 +11,7 @@ import React, { useEffect, useState } from "react";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { API_BASE_URL } from "../constants/Config";
+import { cachedFetch } from "../services/apiCache";
 
 const { width } = Dimensions.get("window");
 
@@ -26,8 +27,7 @@ const DailyDeals = () => {
 
   const fetchDeals = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/daily-deals/list`);
-      const data = await response.json();
+      const data = await cachedFetch(`${API_BASE_URL}/daily-deals/list`);
       if (data.success && data.deals) {
         const activeDeals = data.deals
           .filter((d: any) => d.active)
