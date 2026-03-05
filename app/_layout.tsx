@@ -4,17 +4,17 @@ import "../polyfills";
 
 import SplashScreen from "@/components/splash-screen";
 import {
-    Poppins_400Regular,
-    Poppins_500Medium,
-    Poppins_600SemiBold,
-    Poppins_700Bold,
-    Poppins_800ExtraBold,
-    useFonts,
+  Poppins_400Regular,
+  Poppins_500Medium,
+  Poppins_600SemiBold,
+  Poppins_700Bold,
+  Poppins_800ExtraBold,
+  useFonts,
 } from "@expo-google-fonts/poppins";
 import {
-    Montserrat_700Bold,
-    Montserrat_800ExtraBold,
-    Montserrat_900Black,
+  Montserrat_700Bold,
+  Montserrat_800ExtraBold,
+  Montserrat_900Black,
 } from "@expo-google-fonts/montserrat";
 import { useEffect, useState } from "react";
 import { Text } from "react-native";
@@ -113,7 +113,6 @@ export default function RootLayout() {
                     <Stack.Screen name="index" options={{ headerShown: false }} />
                     <Stack.Screen name="login" options={{ headerShown: false }} />
                     <Stack.Screen name="signup" options={{ headerShown: false }} />
-                    <Stack.Screen name="profile" options={{ headerShown: false }} />
                     <Stack.Screen name="wallet" options={{ headerShown: false }} />
                     <Stack.Screen name="wishlist" options={{ headerShown: false }} />
                     <Stack.Screen name="addresses" options={{ headerShown: false }} />

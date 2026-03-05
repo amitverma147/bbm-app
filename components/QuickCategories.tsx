@@ -8,6 +8,7 @@ import {
 } from "react-native";
 import React, { useEffect, useState } from "react";
 import { router } from "expo-router";
+import { API_BASE_URL } from "../constants/Config";
 
 const QuickCategories = () => {
   const [categories, setCategories] = useState<any[]>([]);
@@ -20,7 +21,7 @@ const QuickCategories = () => {
   const loadCategories = async () => {
     try {
       const response = await fetch(
-        "https://api.amitdev.tech/api/categories/section/price_zone/subcategories",
+        `${API_BASE_URL}/categories/section/price_zone/subcategories`,
       );
       const data = await response.json();
 
